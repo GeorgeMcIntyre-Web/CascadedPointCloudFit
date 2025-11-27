@@ -75,13 +75,20 @@ export class TransformationUtils {
    * @returns Result transformation (a * b)
    */
   static multiply(a: Transform4x4, b: Transform4x4): Transform4x4 {
-    const result: number[][] = [[0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 1]];
+    const result: number[][] = [
+      [0, 0, 0, 0],
+      [0, 0, 0, 0],
+      [0, 0, 0, 0],
+      [0, 0, 0, 0]
+    ];
     
     for (let i = 0; i < 4; i++) {
       for (let j = 0; j < 4; j++) {
+        let sum = 0;
         for (let k = 0; k < 4; k++) {
-          result[i][j] += a.matrix[i][k] * b.matrix[k][j];
+          sum += a.matrix[i][k] * b.matrix[k][j];
         }
+        result[i][j] = sum;
       }
     }
     
