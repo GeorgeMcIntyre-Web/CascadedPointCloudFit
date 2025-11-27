@@ -19,8 +19,6 @@ import { Matrix } from 'ml-matrix';
  * @returns SVD result with U, S, V matrices
  */
 export function computeSVD3x3(matrix: Matrix): { U: Matrix; S: Matrix; V: Matrix } {
-  const A = matrix.to2DArray();
-  
   // For 3x3, we can compute directly
   // A^T * A = V * S^2 * V^T
   const AtA = matrix.transpose().mmul(matrix);
