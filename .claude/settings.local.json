@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(test:*)",
+      "Bash(python -m venv:*)",
+      "Bash(./venv/Scripts/pip:*)",
+      "Bash(./venv/Scripts/python:*)",
+      "Bash(find:*)",
+      "Bash(echo:*)",
+      "Bash(python -c \"import os; os.makedirs(''cascaded_fit/api'', exist_ok=True); print(''Directory created'')\")",
+      "Bash(python -c:*)",
+      "Bash(python -m pytest:*)",
+      "Bash(python -m pip install:*)",
+      "Bash(git add:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

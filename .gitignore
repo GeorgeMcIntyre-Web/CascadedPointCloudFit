@@ -1,7 +1,76 @@
-venv/*
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
 
-/.vs
-/build
-/dist
-/__pycache__
+# Virtual environments
+venv/
+ENV/
+env/
+.venv
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+.vs/
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+
+# Logs
+*.log
+logs/*.log
+!logs/.gitkeep
+cascaded_fit.log
+api.log
+
+# Project specific - Temporary files
+temp/
+*.npy
 *.spec
+
+# Test data - INCLUDE in repo
+# All test data should be versioned
+!test_data/**/*.ply
+!test_data/**/*.csv
+!test_data/**/*.json
+!test_data/**/*.txt
+
+# Distribution
+*.tar.gz
+*.whl
+
+# Documentation
+docs/_build/
+site/
+
+# Temporary files
+*.tmp
+*.bak
+*.swp
+.cache/

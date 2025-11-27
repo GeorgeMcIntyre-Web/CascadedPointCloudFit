@@ -1,0 +1,46 @@
+# Default configuration for CascadedPointCloudFit
+
+registration:
+  rmse_threshold: 0.01
+  max_iterations: 200
+  tolerance: 0.0000001
+
+icp:
+  max_correspondence_distance: 100.0
+  relative_fitness: 0.0000001
+  relative_rmse: 0.0000001
+
+fgr:
+  distance_threshold: 0.01
+  voxel_size: 10.0
+  max_correspondence_distance: 0.0003
+  radius_normal_factor: 2
+  radius_feature_factor: 5
+  max_nn_normal: 30
+  max_nn_feature: 100
+
+logging:
+  level: INFO
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  file: "cascaded_fit.log"
+  console: true
+
+api:
+  host: "0.0.0.0"
+  port: 5000
+  debug: false
+  max_points: 1000000
+  timeout: 300  # seconds
+  rmse_threshold: 0.001
+  enable_bidirectional: true
+
+cli:
+  visualize: false
+  save_intermediate_results: false
+  verbose: false
+
+validation:
+  min_points: 100
+  max_points: 10000000
+  check_nan: true
+  check_inf: true

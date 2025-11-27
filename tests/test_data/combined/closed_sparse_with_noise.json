@@ -1,0 +1,6 @@
+{
+  "name": "sparse_with_noise",
+  "subsample": 0.25,
+  "noise": 0.1,
+  "outliers": 0.05
+}

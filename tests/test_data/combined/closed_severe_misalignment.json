@@ -1,0 +1,16 @@
+{
+  "name": "severe_misalignment",
+  "rotation": [
+    90,
+    "x"
+  ],
+  "translation": [
+    [
+      1,
+      1,
+      1
+    ],
+    200
+  ],
+  "noise": 0.5
+}

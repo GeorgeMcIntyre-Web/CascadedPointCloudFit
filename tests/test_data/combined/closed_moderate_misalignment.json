@@ -1,0 +1,16 @@
+{
+  "name": "moderate_misalignment",
+  "rotation": [
+    30,
+    "y"
+  ],
+  "translation": [
+    [
+      1,
+      1,
+      0
+    ],
+    50
+  ],
+  "noise": 0.1
+}

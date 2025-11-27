@@ -1,0 +1,16 @@
+{
+  "name": "slight_misalignment",
+  "rotation": [
+    5,
+    "z"
+  ],
+  "translation": [
+    [
+      1,
+      0,
+      0
+    ],
+    10
+  ],
+  "noise": 0.01
+}
