@@ -9,7 +9,6 @@ export class SpatialGrid {
   private grid: Map<number, Uint32Array>; // Use integer keys and TypedArrays
   private gridTemp: Map<number, number[]>; // Temporary during construction
   private cellSize: number;
-  private bounds: { minX: number; maxX: number; minY: number; maxY: number; minZ: number; maxZ: number };
   private cloud: PointCloud; // Store reference to original cloud
   private gridDims: { offsetX: number; offsetY: number; offsetZ: number; scaleX: number; scaleY: number; scaleZ: number };
 
@@ -34,8 +33,6 @@ export class SpatialGrid {
       minZ = Math.min(minZ, z);
       maxZ = Math.max(maxZ, z);
     }
-    
-    this.bounds = { minX, maxX, minY, maxY, minZ, maxZ };
 
     // Auto-calculate cell size if not provided
     // Optimize cell size for better locality - aim for ~50-100 points per cell on average

@@ -24,7 +24,9 @@
       "Bash(for i in {1..3})",
       "Bash(do echo 'Run $i:')",
       "Bash(done)",
-      "Bash(tee:*)"
+      "Bash(tee:*)",
+      "Bash(npm test:*)",
+      "Bash(npx tsc:*)"
     ],
     "deny": [],
     "ask": []
