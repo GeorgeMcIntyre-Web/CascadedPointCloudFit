@@ -116,11 +116,14 @@ export class TransformationUtils {
       -(R_inv[2][0] * t[0] + R_inv[2][1] * t[1] + R_inv[2][2] * t[2])
     ];
     
+    // Normalize zeros to avoid -0
+    const normalizeZero = (x: number) => x === 0 ? 0 : x;
+    
     return {
       matrix: [
-        [R_inv[0][0], R_inv[0][1], R_inv[0][2], t_inv[0]],
-        [R_inv[1][0], R_inv[1][1], R_inv[1][2], t_inv[1]],
-        [R_inv[2][0], R_inv[2][1], R_inv[2][2], t_inv[2]],
+        [normalizeZero(R_inv[0][0]), normalizeZero(R_inv[0][1]), normalizeZero(R_inv[0][2]), normalizeZero(t_inv[0])],
+        [normalizeZero(R_inv[1][0]), normalizeZero(R_inv[1][1]), normalizeZero(R_inv[1][2]), normalizeZero(t_inv[1])],
+        [normalizeZero(R_inv[2][0]), normalizeZero(R_inv[2][1]), normalizeZero(R_inv[2][2]), normalizeZero(t_inv[2])],
         [0, 0, 0, 1]
       ]
     };

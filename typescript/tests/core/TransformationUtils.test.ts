@@ -55,7 +55,12 @@ describe('TransformationUtils', () => {
       const id2 = TransformationUtils.createIdentity();
       const result = TransformationUtils.multiply(id1, id2);
       
-      expect(result.matrix).toEqual(id1.matrix);
+      // Check each element (handles -0 vs 0)
+      for (let i = 0; i < 4; i++) {
+        for (let j = 0; j < 4; j++) {
+          expect(result.matrix[i][j]).toBeCloseTo(id1.matrix[i][j], 10);
+        }
+      }
     });
 
     it('should multiply translation matrices', () => {
@@ -86,7 +91,12 @@ describe('TransformationUtils', () => {
       const identity = TransformationUtils.createIdentity();
       const inverted = TransformationUtils.invert(identity);
       
-      expect(inverted.matrix).toEqual(identity.matrix);
+      // Check each element (handles -0 vs 0)
+      for (let i = 0; i < 4; i++) {
+        for (let j = 0; j < 4; j++) {
+          expect(inverted.matrix[i][j]).toBeCloseTo(identity.matrix[i][j], 10);
+        }
+      }
     });
 
     it('should invert translation matrix', () => {
