@@ -1,0 +1,48 @@
+# Test Data Cleanup Plan
+
+## Current Size: 53 MB
+
+## Proposed Changes:
+
+### 1. Remove Exact Duplicates (2.5 MB savings)
+- challenging/icp_fails/M.* (duplicates of *_M3.*)
+- challenging/icp_fails/O.* (duplicates of *_O3.*)
+- challenging/pin_fails2/ (entire directory - duplicates pin_fails1)
+
+### 2. Remove CSV Files (25 MB savings)
+Keep only PLY files since:
+- PLY is binary (faster to load)
+- PLY is our primary format
+- Tests use PLY files
+- CSV is redundant (same data, larger size)
+
+Remove CSV from:
+- unit_111/ (846 KB)
+- clamp/ (992 KB)
+- slide/ (14.8 MB) ← BIGGEST SAVINGS
+- challenging/clouds3_large/ (4.5 MB)
+- challenging/fails4/ (848 KB)
+- challenging/icp_fails/ (904 KB)
+- challenging/pin_fails1/ (799 KB)
+
+### 3. Remove TXT duplicates (992 KB)
+- clamp/Clamp1.txt
+- clamp/Clamp2.txt
+
+### 4. Keep Bunny TXT files (NOT duplicates)
+- bunny/*.txt files are different format/source data (keep)
+
+## Total Savings: ~28.5 MB (54% reduction)
+## Final Size: ~24.5 MB
+
+## Files to Keep (20 PLY + 4 bunny TXT = 24 files):
+✅ unit_111/*.ply (2 files)
+✅ clamp/*.ply (2 files)
+✅ slide/*.ply (2 files)
+✅ bunny/*.ply + *.txt (4 files - keep all, different sources)
+✅ challenging/clouds3_large/*.ply (2 files)
+✅ challenging/fails4/*.ply (2 files)
+✅ challenging/icp_fails/*_M3.ply, *_O3.ply (2 files only)
+✅ challenging/pin_fails1/*.ply (2 files)
+❌ challenging/pin_fails2/ (remove entire directory)
+
