@@ -18,28 +18,28 @@ class TestConfigErrorHandling:
 
     def test_get_registration_config_missing_section(self):
         """Test get_registration_config with missing section."""
-        Config._config = {}
+        Config._config = {'other': 'section'}  # Config loaded but missing registration
         
         with pytest.raises(ConfigurationError, match="missing 'registration' section"):
             Config.get_registration_config()
 
     def test_get_icp_config_missing_section(self):
         """Test get_icp_config with missing section."""
-        Config._config = {}
+        Config._config = {'other': 'section'}  # Config loaded but missing icp
         
         with pytest.raises(ConfigurationError, match="missing 'icp' section"):
             Config.get_icp_config()
 
     def test_get_fgr_config_missing_section(self):
         """Test get_fgr_config with missing section."""
-        Config._config = {}
+        Config._config = {'other': 'section'}  # Config loaded but missing fgr
         
         with pytest.raises(ConfigurationError, match="missing 'fgr' section"):
             Config.get_fgr_config()
 
     def test_get_api_config_missing_section(self):
         """Test get_api_config with missing section."""
-        Config._config = {}
+        Config._config = {'other': 'section'}  # Config loaded but missing api
         
         with pytest.raises(ConfigurationError, match="missing 'api' section"):
             Config.get_api_config()
