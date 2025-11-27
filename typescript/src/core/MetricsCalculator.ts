@@ -54,16 +54,6 @@ export class MetricsCalculator {
     };
   }
 
-  private static euclideanDistance(
-    p1: { x: number; y: number; z: number },
-    p2: { x: number; y: number; z: number }
-  ): number {
-    const dx = p1.x - p2.x;
-    const dy = p1.y - p2.y;
-    const dz = p1.z - p2.z;
-    return Math.sqrt(dx * dx + dy * dy + dz * dz);
-  }
-
   private static median(values: number[]): number {
     const sorted = [...values].sort((a, b) => a - b);
     const mid = Math.floor(sorted.length / 2);

@@ -250,13 +250,6 @@ export class RegistrationAlgorithms {
     };
   }
 
-  private static euclideanDistance(p1: { x: number; y: number; z: number }, p2: { x: number; y: number; z: number }): number {
-    const dx = p1.x - p2.x;
-    const dy = p1.y - p2.y;
-    const dz = p1.z - p2.z;
-    return Math.sqrt(dx * dx + dy * dy + dz * dz);
-  }
-
   private static multiply3x3Matrices(A: number[][], B: number[][]): number[][] {
     const result: number[][] = [[0, 0, 0], [0, 0, 0], [0, 0, 0]];
     for (let i = 0; i < 3; i++) {

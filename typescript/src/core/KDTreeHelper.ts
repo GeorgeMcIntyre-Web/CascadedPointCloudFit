@@ -7,18 +7,6 @@
 import { Point3D, PointCloud } from './types';
 import { PointCloudHelper } from './PointCloudHelper';
 
-// KD-Tree library interface
-interface KDTreePoint {
-  x: number;
-  y: number;
-  z: number;
-}
-
-interface KDTree {
-  nearest(point: KDTreePoint, n?: number): Array<{ point: KDTreePoint; distance: number }>;
-  nearestPoint(point: KDTreePoint): { point: KDTreePoint; distance: number };
-}
-
 // Simple KD-Tree implementation for 3D points
 export class KDTree3D {
   private points: Point3D[];
