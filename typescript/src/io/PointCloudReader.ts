@@ -74,7 +74,7 @@ export class PointCloudReader {
               reject(new Error(`Failed to parse CSV file: ${error}`));
             }
           },
-          error: (error) => {
+          error: (error: Error) => {
             reject(new Error(`CSV parsing error: ${error.message}`));
           }
         });
