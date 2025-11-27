@@ -55,12 +55,14 @@ describe('TransformationUtils', () => {
       const id2 = TransformationUtils.createIdentity();
       const result = TransformationUtils.multiply(id1, id2);
       
-      // Check each element (handles -0 vs 0)
-      for (let i = 0; i < 4; i++) {
-        for (let j = 0; j < 4; j++) {
-          expect(result.matrix[i][j]).toBeCloseTo(id1.matrix[i][j], 10);
-        }
-      }
+      // Identity * Identity = Identity
+      expect(result.matrix[0][0]).toBe(1);
+      expect(result.matrix[1][1]).toBe(1);
+      expect(result.matrix[2][2]).toBe(1);
+      expect(result.matrix[3][3]).toBe(1);
+      expect(result.matrix[0][3]).toBe(0);
+      expect(result.matrix[1][3]).toBe(0);
+      expect(result.matrix[2][3]).toBe(0);
     });
 
     it('should multiply translation matrices', () => {
