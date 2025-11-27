@@ -25,7 +25,6 @@
   "license": "MIT",
   "dependencies": {
     "ml-matrix": "^6.10.4",
-    "ml-pca": "^3.1.0",
     "kd-tree-javascript": "^1.0.3",
     "papaparse": "^5.4.1",
     "commander": "^11.1.0",
