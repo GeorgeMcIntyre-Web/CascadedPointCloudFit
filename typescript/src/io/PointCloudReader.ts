@@ -101,7 +101,6 @@ export class PointCloudReader {
       let headerEnd = -1;
       let vertexCount = 0;
       let hasX = false, hasY = false, hasZ = false;
-      let xIdx = -1, yIdx = -1, zIdx = -1;
       
       for (let i = 0; i < lines.length; i++) {
         const line = lines[i];
