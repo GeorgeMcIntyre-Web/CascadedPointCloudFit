@@ -116,17 +116,13 @@ export class PointCloudReader {
           const parts = line.split(/\s+/);
           if (parts.length >= 3) {
             const propName = parts[parts.length - 1].toLowerCase();
-            const propIdx = i;
             
             if (propName === 'x') {
               hasX = true;
-              xIdx = propIdx;
             } else if (propName === 'y') {
               hasY = true;
-              yIdx = propIdx;
             } else if (propName === 'z') {
               hasZ = true;
-              zIdx = propIdx;
             }
           }
         }
