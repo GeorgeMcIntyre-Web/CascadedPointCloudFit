@@ -6,14 +6,16 @@
 import { Point3D, PointCloud } from './types';
 
 export class SpatialGrid {
-  private grid: Map<string, number[]>; // Store indices into original point cloud
+  private grid: Map<number, Uint32Array>; // Use integer keys and TypedArrays
+  private gridTemp: Map<number, number[]>; // Temporary during construction
   private cellSize: number;
   private bounds: { minX: number; maxX: number; minY: number; maxY: number; minZ: number; maxZ: number };
   private cloud: PointCloud; // Store reference to original cloud
+  private gridDims: { offsetX: number; offsetY: number; offsetZ: number; scaleX: number; scaleY: number; scaleZ: number };
 
   constructor(cloud: PointCloud, cellSize?: number) {
     this.cloud = cloud;
-    this.grid = new Map();
+    this.gridTemp = new Map();
     
     // Calculate bounds directly from Float32Array
     let minX = Infinity, maxX = -Infinity;
@@ -45,31 +47,56 @@ export class SpatialGrid {
     const estimatedCells = Math.max(1, cloud.count / targetPointsPerCell);
     const cellsPerDim = Math.cbrt(estimatedCells);
     this.cellSize = cellSize || Math.max(avgRange / cellsPerDim, 0.01);
-    
+
+    // Pre-compute grid dimensions for fast integer key generation
+    const invCellSize = 1.0 / this.cellSize;
+    this.gridDims = {
+      offsetX: minX,
+      offsetY: minY,
+      offsetZ: minZ,
+      scaleX: invCellSize,
+      scaleY: invCellSize,
+      scaleZ: invCellSize
+    };
+
     // Populate grid using indices (no Point3D object creation)
+    // Build with regular arrays first, then convert to TypedArrays
     for (let i = 0; i < cloud.count; i++) {
       const x = points[i * 3];
       const y = points[i * 3 + 1];
       const z = points[i * 3 + 2];
       const key = this.getCellKey(x, y, z);
-      if (!this.grid.has(key)) {
-        this.grid.set(key, []);
+      if (!this.gridTemp.has(key)) {
+        this.gridTemp.set(key, []);
       }
-      this.grid.get(key)!.push(i); // Store index instead of point
+      this.gridTemp.get(key)!.push(i);
     }
+
+    // Convert to TypedArrays for better performance
+    this.grid = new Map();
+    for (const [key, indices] of this.gridTemp.entries()) {
+      this.grid.set(key, new Uint32Array(indices));
+    }
+    this.gridTemp.clear();
   }
 
-  private getCellKey(x: number, y: number, z: number): string {
-    const i = Math.floor((x - this.bounds.minX) / this.cellSize);
-    const j = Math.floor((y - this.bounds.minY) / this.cellSize);
-    const k = Math.floor((z - this.bounds.minZ) / this.cellSize);
-    return `${i},${j},${k}`;
+  private getCellKey(x: number, y: number, z: number): number {
+    // Use packed integer key for better performance than string keys
+    const i = Math.floor((x - this.gridDims.offsetX) * this.gridDims.scaleX);
+    const j = Math.floor((y - this.gridDims.offsetY) * this.gridDims.scaleY);
+    const k = Math.floor((z - this.gridDims.offsetZ) * this.gridDims.scaleZ);
+    // Pack into 32-bit integer: 10 bits each for i,j,k (supports -512 to 511 range)
+    return ((i + 512) << 20) | ((j + 512) << 10) | (k + 512);
   }
 
   nearest(x: number, y: number, z: number): { point: Point3D; distance: number } {
     // Search in the cell and neighboring cells
     const centerKey = this.getCellKey(x, y, z);
-    const [ci, cj, ck] = centerKey.split(',').map(Number);
+
+    // Unpack center cell coordinates
+    const ci = ((centerKey >> 20) & 0x3FF) - 512;
+    const cj = ((centerKey >> 10) & 0x3FF) - 512;
+    const ck = (centerKey & 0x3FF) - 512;
 
     let bestIdx: number | null = null;
     let bestDistSq = Infinity;
@@ -80,8 +107,6 @@ export class SpatialGrid {
     const maxRadius = 5; // Reduced from 10 - if not found in 5, do linear search
 
     while (radius <= maxRadius) {
-      let foundInThisRadius = false;
-
       // Only search shell (not entire cube) to reduce redundant checks
       for (let di = -radius; di <= radius; di++) {
         for (let dj = -radius; dj <= radius; dj++) {
@@ -91,11 +116,16 @@ export class SpatialGrid {
               continue;
             }
 
-            const key = `${ci + di},${cj + dj},${ck + dk}`;
+            // Pack neighbor key directly
+            const ni = ci + di;
+            const nj = cj + dj;
+            const nk = ck + dk;
+            const key = ((ni + 512) << 20) | ((nj + 512) << 10) | (nk + 512);
+
             const cellIndices = this.grid.get(key);
             if (cellIndices) {
-              foundInThisRadius = true;
-              for (const idx of cellIndices) {
+              for (let i = 0; i < cellIndices.length; i++) {
+                const idx = cellIndices[i];
                 const px = points[idx * 3];
                 const py = points[idx * 3 + 1];
                 const pz = points[idx * 3 + 2];

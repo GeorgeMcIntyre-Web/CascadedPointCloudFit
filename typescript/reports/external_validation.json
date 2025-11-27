@@ -9,12 +9,12 @@
     "maxError": 0,
     "meanError": 0,
     "medianError": 0,
-    "durationMs": 2373,
-    "loadTimeMs": 19,
+    "durationMs": 3133,
+    "loadTimeMs": 22,
     "alignTimeMs": 1,
-    "pcaTimeMs": 22,
-    "icpTimeMs": 2319,
-    "updatedAt": "2025-11-27T12:45:23.381Z"
+    "pcaTimeMs": 21,
+    "icpTimeMs": 3070,
+    "updatedAt": "2025-11-27T12:59:31.349Z"
   },
   {
     "name": "Clouds3",
@@ -26,12 +26,12 @@
     "maxError": 0,
     "meanError": 0,
     "medianError": 0,
-    "durationMs": 7279,
-    "loadTimeMs": 51,
-    "alignTimeMs": 1,
-    "pcaTimeMs": 24,
-    "icpTimeMs": 7132,
-    "updatedAt": "2025-11-27T12:45:23.382Z"
+    "durationMs": 7430,
+    "loadTimeMs": 85,
+    "alignTimeMs": 0,
+    "pcaTimeMs": 41,
+    "icpTimeMs": 7213,
+    "updatedAt": "2025-11-27T12:59:31.349Z"
   },
   {
     "name": "Fails4",
@@ -43,12 +43,12 @@
     "maxError": 0,
     "meanError": 0,
     "medianError": 0,
-    "durationMs": 818,
+    "durationMs": 744,
     "loadTimeMs": 14,
     "alignTimeMs": 0,
-    "pcaTimeMs": 4,
-    "icpTimeMs": 793,
-    "updatedAt": "2025-11-27T12:45:23.382Z"
+    "pcaTimeMs": 6,
+    "icpTimeMs": 715,
+    "updatedAt": "2025-11-27T12:59:31.349Z"
   },
   {
     "name": "IcpFails-A",
@@ -60,12 +60,12 @@
     "maxError": 0,
     "meanError": 0,
     "medianError": 0,
-    "durationMs": 324,
+    "durationMs": 292,
     "loadTimeMs": 8,
     "alignTimeMs": 0,
-    "pcaTimeMs": 2,
-    "icpTimeMs": 310,
-    "updatedAt": "2025-11-27T12:45:23.382Z"
+    "pcaTimeMs": 1,
+    "icpTimeMs": 278,
+    "updatedAt": "2025-11-27T12:59:31.349Z"
   },
   {
     "name": "IcpFails-B",
@@ -77,12 +77,12 @@
     "maxError": 0,
     "meanError": 0,
     "medianError": 0,
-    "durationMs": 308,
+    "durationMs": 276,
     "loadTimeMs": 4,
     "alignTimeMs": 0,
-    "pcaTimeMs": 1,
-    "icpTimeMs": 298,
-    "updatedAt": "2025-11-27T12:45:23.382Z"
+    "pcaTimeMs": 2,
+    "icpTimeMs": 266,
+    "updatedAt": "2025-11-27T12:59:31.349Z"
   },
   {
     "name": "PinFails1",
@@ -94,17 +94,17 @@
     "maxError": 0,
     "meanError": 0,
     "medianError": 0,
-    "durationMs": 977,
-    "loadTimeMs": 8,
+    "durationMs": 886,
+    "loadTimeMs": 7,
     "alignTimeMs": 0,
     "pcaTimeMs": 2,
-    "icpTimeMs": 959,
-    "updatedAt": "2025-11-27T12:45:23.382Z"
+    "icpTimeMs": 871,
+    "updatedAt": "2025-11-27T12:59:31.349Z"
   },
   {
     "name": "PinFails2",
     "error": "No nearest neighbor found",
-    "updatedAt": "2025-11-27T12:45:23.382Z"
+    "updatedAt": "2025-11-27T12:59:31.349Z"
   },
   {
     "name": "Slide",
@@ -116,11 +116,11 @@
     "maxError": 0,
     "meanError": 0,
     "medianError": 0,
-    "durationMs": 26249,
-    "loadTimeMs": 170,
+    "durationMs": 19797,
+    "loadTimeMs": 157,
     "alignTimeMs": 0,
-    "pcaTimeMs": 13,
-    "icpTimeMs": 22799,
-    "updatedAt": "2025-11-27T12:45:23.382Z"
+    "pcaTimeMs": 12,
+    "icpTimeMs": 16487,
+    "updatedAt": "2025-11-27T12:59:31.349Z"
   }
 ]
