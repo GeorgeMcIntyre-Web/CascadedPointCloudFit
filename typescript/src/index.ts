@@ -7,4 +7,6 @@ export * from './core/PointCloudHelper';
 export * from './core/RegistrationAlgorithms';
 export * from './core/MetricsCalculator';
 export * from './core/KDTreeHelper';
+export * from './io/PointCloudReader';
+export * from './utils/Config';
 
