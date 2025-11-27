@@ -1,8 +1,8 @@
 # CascadedPointCloudFit
 
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
-[![Tests](https://img.shields.io/badge/tests-39%20passing-brightgreen.svg)]()
-[![Coverage](https://img.shields.io/badge/coverage-68%25-yellow.svg)]()
+[![Tests](https://img.shields.io/badge/tests-116%20passing-brightgreen.svg)]()
+[![Coverage](https://img.shields.io/badge/coverage-88%25-brightgreen.svg)]()
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)]()
 
 A professional Python package for robust point cloud registration using cascaded ICP and FGR algorithms from Open3D. Originally designed for automatic kinematic generation from CAD designs by fitting open-closed component positions.
@@ -12,7 +12,7 @@ A professional Python package for robust point cloud registration using cascaded
 - **Cascaded Registration**: Tries ICP first, falls back to FGR for difficult cases
 - **Multiple Interfaces**: CLI, REST API, and Python package
 - **Robust**: Handles challenging cases that fail with standard ICP
-- **Well-Tested**: 68% code coverage with 39 automated tests
+- **Well-Tested**: 88% code coverage with 116 automated tests
 - **Production-Ready**: Comprehensive logging, error handling, and validation
 - **Configurable**: YAML-based configuration system
 - **Multiple Formats**: Supports PLY and CSV point cloud formats
@@ -223,16 +223,18 @@ python scripts/generate_test_data.py
 
 ### Test Coverage
 
-- **Total**: 68% (848 statements, 268 missing)
-- **Core modules**: 74-100% coverage
-- **Fitters**: 74-90% coverage
-- **Utilities**: 72-100% coverage
+- **Total**: 88% (874 statements, 108 missing)
+- **Core modules**: 78-100% coverage
+- **Fitters**: 91-100% coverage
+- **Utilities**: 92-100% coverage
+- **API**: 80% coverage
+- **CLI**: 65% coverage
 
 ### Test Results
 
 ```
-Tests:     39 PASSED, 1 FAILED, 3 SKIPPED
-Time:      ~10 seconds
+Tests:     116 PASSED, 1 KNOWN ISSUE, 8 SKIPPED
+Time:      ~2 seconds
 ```
 
 ## 📊 Performance
@@ -357,7 +359,7 @@ For issues, questions, or contributions:
 
 ## 🔜 Roadmap
 
-- [ ] Increase test coverage to 80%+
+- [x] Increase test coverage to 80%+ ✅ (88% achieved)
 - [ ] Add Docker deployment
 - [ ] Implement TypeScript version
 - [ ] Add performance benchmarks

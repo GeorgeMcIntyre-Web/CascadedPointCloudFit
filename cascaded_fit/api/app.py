@@ -379,7 +379,7 @@ def create_app(config_path: str = None) -> Flask:
         Configured Flask app
     """
     if config_path:
-        config.load_config(config_path)
+        config.load(config_path)
 
     logger.info("Flask app created successfully")
     return app

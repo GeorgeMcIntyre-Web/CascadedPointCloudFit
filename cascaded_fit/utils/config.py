@@ -4,6 +4,7 @@ import yaml
 from pathlib import Path
 from typing import Any, Dict, Optional
 from dataclasses import dataclass
+from cascaded_fit.utils.exceptions import ConfigurationError
 
 
 @dataclass
@@ -59,7 +60,18 @@ class Config:
 
     @classmethod
     def load(cls, config_path: Optional[str] = None) -> "Config":
-        """Load configuration from YAML file."""
+        """Load configuration from YAML file.
+        
+        Args:
+            config_path: Optional path to configuration file. If None, loads default.yaml
+            
+        Returns:
+            Config instance
+            
+        Raises:
+            FileNotFoundError: If configuration file doesn't exist
+            yaml.YAMLError: If YAML parsing fails
+        """
         if config_path is None:
             # Default to config/default.yaml in project root
             config_path = Path(__file__).parent.parent.parent / "config" / "default.yaml"
@@ -69,10 +81,27 @@ class Config:
         if not config_path.exists():
             raise FileNotFoundError(f"Configuration file not found: {config_path}")
 
-        with open(config_path, 'r') as f:
-            cls._config = yaml.safe_load(f)
+        try:
+            with open(config_path, 'r') as f:
+                cls._config = yaml.safe_load(f)
+                
+            # Validate required sections exist
+            cls._validate_config()
+        except yaml.YAMLError as e:
+            raise ConfigurationError(f"Failed to parse YAML configuration: {e}") from e
 
         return cls._instance
+    
+    @classmethod
+    def _validate_config(cls) -> None:
+        """Validate configuration has required sections."""
+        required_sections = ['registration', 'icp', 'fgr', 'api']
+        missing = [section for section in required_sections if section not in cls._config]
+        
+        if missing:
+            raise ConfigurationError(
+                f"Configuration missing required sections: {', '.join(missing)}"
+            )
 
     @classmethod
     def get(cls, key: str, default: Any = None) -> Any:
@@ -107,9 +136,20 @@ class Config:
 
     @classmethod
     def get_icp_config(cls) -> ICPConfig:
-        """Get typed ICP configuration."""
+        """Get typed ICP configuration.
+        
+        Returns:
+            ICPConfig instance
+            
+        Raises:
+            KeyError: If icp section is missing
+            ConfigurationError: If required keys are missing
+        """
         if not cls._config:
             cls.load()
+
+        if 'icp' not in cls._config:
+            raise ConfigurationError("Configuration missing 'icp' section")
 
         icp_cfg = cls._config['icp']
 
@@ -117,9 +157,20 @@ class Config:
 
     @classmethod
     def get_fgr_config(cls) -> FGRConfig:
-        """Get typed FGR configuration."""
+        """Get typed FGR configuration.
+        
+        Returns:
+            FGRConfig instance
+            
+        Raises:
+            KeyError: If fgr section is missing
+            ConfigurationError: If required keys are missing
+        """
         if not cls._config:
             cls.load()
+
+        if 'fgr' not in cls._config:
+            raise ConfigurationError("Configuration missing 'fgr' section")
 
         fgr_cfg = cls._config['fgr']
 
@@ -127,9 +178,20 @@ class Config:
 
     @classmethod
     def get_api_config(cls) -> APIConfig:
-        """Get typed API configuration."""
+        """Get typed API configuration.
+        
+        Returns:
+            APIConfig instance
+            
+        Raises:
+            KeyError: If api section is missing
+            ConfigurationError: If required keys are missing
+        """
         if not cls._config:
             cls.load()
+
+        if 'api' not in cls._config:
+            raise ConfigurationError("Configuration missing 'api' section")
 
         api_cfg = cls._config['api']
 
