@@ -46,13 +46,19 @@
 
 ## 🚧 In Progress
 
-- [ ] **SVD Implementation**
-  - [ ] Proper eigen decomposition for 3x3 matrices
-  - [ ] Currently using placeholder - needs proper numerical library
+- [x] **SVD Implementation** ✅
+  - [x] Proper Jacobi eigen decomposition for 3x3 matrices
+  - [x] SVDHelper module created and working
 
 - [ ] **KD-Tree Integration**
   - [ ] Integrate kd-tree-javascript for efficient nearest neighbor search
   - [ ] Currently using brute force (O(n²)) - needs optimization
+
+- [ ] **Unit Tests**
+  - [x] Basic tests for RegistrationAlgorithms
+  - [ ] Tests for MetricsCalculator
+  - [ ] Tests for PointCloudHelper
+  - [ ] Integration tests with real data
 
 ---
 
@@ -94,7 +100,8 @@
 |-----------|-------|--------|
 | **types.ts** | ~100 | ✅ Complete |
 | **PointCloudHelper.ts** | ~150 | ✅ Complete |
-| **RegistrationAlgorithms.ts** | ~330 | 🟡 Needs SVD fix |
+| **RegistrationAlgorithms.ts** | ~280 | ✅ Complete |
+| **SVDHelper.ts** | ~150 | ✅ Complete |
 | **MetricsCalculator.ts** | ~70 | ✅ Complete |
 | **Total** | ~650 | 🟡 80% Complete |
 
@@ -114,13 +121,13 @@
 | Phase | Status | Progress |
 |-------|--------|----------|
 | Planning | ✅ Complete | 100% |
-| Phase 1: Core Algorithms | 🟡 In Progress | 80% |
+| Phase 1: Core Algorithms | 🟡 In Progress | 90% |
 | Phase 2: I/O & Utilities | ⚪ Not Started | 0% |
 | Phase 3: API & CLI | ⚪ Not Started | 0% |
 | Phase 4: Testing | ⚪ Not Started | 0% |
 | Phase 5: Documentation | ⚪ Not Started | 0% |
 
-**Overall Progress**: ~20% (Core algorithms mostly done, needs optimization)
+**Overall Progress**: ~25% (Core algorithms complete, SVD fixed, tests added)
 
 ---
 
