@@ -165,5 +165,31 @@ export class PointCloudHelper {
       z: sumZ / n
     };
   }
+
+  /**
+   * Compute centroid from an array of Point3D objects.
+   */
+  static computeCentroidFromPoints(points: Point3D[]): Point3D {
+    if (points.length === 0) {
+      return { x: 0, y: 0, z: 0 };
+    }
+
+    let sumX = 0;
+    let sumY = 0;
+    let sumZ = 0;
+
+    for (const point of points) {
+      sumX += point.x;
+      sumY += point.y;
+      sumZ += point.z;
+    }
+
+    const inv = 1 / points.length;
+    return {
+      x: sumX * inv,
+      y: sumY * inv,
+      z: sumZ * inv,
+    };
+  }
 }
 

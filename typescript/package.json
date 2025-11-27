@@ -14,7 +14,8 @@
     "format": "prettier --write \"src/**/*.ts\"",
     "cli": "tsx src/cli/index.ts",
     "start": "node dist/api/server.js",
-    "prepublishOnly": "npm run build"
+    "prepublishOnly": "npm run build",
+    "validate:external": "tsx scripts/validateExternalData.ts"
   },
   "bin": {
     "cascaded-pointcloud-fit": "./dist/bin/cli.js"

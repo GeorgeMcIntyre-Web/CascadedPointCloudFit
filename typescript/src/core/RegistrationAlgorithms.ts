@@ -83,6 +83,15 @@ export class RegistrationAlgorithms {
     maxIterations: number = 50,
     tolerance: number = 1e-7
   ): ICPResult {
+    // For very large point clouds, use adaptive downsampling
+    // Very large clouds (>100k) need more aggressive downsampling
+    const useDownsampling = source.count > 20000;
+    let downsampleFactor = useDownsampling ? Math.ceil(source.count / 10000) : 1;
+    
+    // For extremely large clouds, use even more aggressive downsampling
+    if (source.count > 100000) {
+      downsampleFactor = Math.ceil(source.count / 20000); // Downsample to ~20k points
+    }
     // Validate inputs
     if (source.count < 3) {
       throw new Error('Source point cloud must have at least 3 points');
@@ -97,23 +106,50 @@ export class RegistrationAlgorithms {
     let currentTransform = this.cloneTransform(initialTransform);
     let prevError = Infinity;
 
+    // For large clouds, do initial iterations with downsampling
+    const refineIteration = useDownsampling ? Math.max(2, Math.floor(maxIterations * 0.7)) : maxIterations;
+
     for (let iteration = 0; iteration < maxIterations; iteration++) {
+      // Use downsampled points for initial iterations on large clouds
+      const useDownsampled = useDownsampling && iteration < refineIteration;
+      const effectiveSource = useDownsampled ? this.downsample(source, downsampleFactor) : source;
+      
       // Transform source points
-      const transformedSource = PointCloudHelper.applyTransformation(source, currentTransform);
-      const transformedPoints = PointCloudHelper.toPoints(transformedSource);
+      const transformedSource = PointCloudHelper.applyTransformation(effectiveSource, currentTransform);
+      
+      // Find nearest neighbors using KD-Tree
+      const correspondingPoints = new Float32Array(transformedSource.count * 3);
+      let totalDistanceSq = 0;
 
-      // Find nearest neighbors using KD-Tree (O(log n) instead of O(n))
-      const distances: number[] = [];
-      const correspondingPoints: Array<{ x: number; y: number; z: number }> = [];
-
-      for (const transformedPoint of transformedPoints) {
-        const nearest = targetTree.nearest(transformedPoint);
-        distances.push(nearest.distance);
-        correspondingPoints.push(nearest.point);
+      const sourcePoints = transformedSource.points;
+      const count = transformedSource.count;
+      
+      for (let i = 0; i < count; i++) {
+        const idx = i * 3;
+        const x = sourcePoints[idx];
+        const y = sourcePoints[idx + 1];
+        const z = sourcePoints[idx + 2];
+        
+        const nearest = targetTree.nearestRaw(x, y, z);
+        const np = nearest.point;
+        correspondingPoints[idx] = np.x;
+        correspondingPoints[idx + 1] = np.y;
+        correspondingPoints[idx + 2] = np.z;
+        
+        totalDistanceSq += nearest.distance * nearest.distance;
       }
 
-      // Compute error
-      const error = distances.reduce((sum, d) => sum + d, 0) / distances.length;
+      // Compute mean error (RMSE)
+      const error = Math.sqrt(totalDistanceSq / transformedSource.count);
+
+      // Early termination if error is already very low (avoid unnecessary iterations)
+      if (error < tolerance * 10) {
+        return {
+          transform: currentTransform,
+          iterations: iteration + 1,
+          error
+        };
+      }
 
       // Check convergence
       if (Math.abs(error - prevError) < tolerance) {
@@ -127,18 +163,17 @@ export class RegistrationAlgorithms {
       prevError = error;
 
       // Compute incremental transformation via SVD
-      const sourceCentered = this.centerPointCloud(
-        PointCloudHelper.fromPoints(transformedPoints),
-        PointCloudHelper.computeCentroid(transformedSource)
+      const sourceMean = PointCloudHelper.computeCentroid(transformedSource);
+      const targetCloud: PointCloud = { points: correspondingPoints, count: transformedSource.count };
+      const targetMean = PointCloudHelper.computeCentroid(targetCloud);
+      
+      // Compute cross-covariance directly from Float32Arrays (avoid Point3D conversions)
+      const cov = this.computeCrossCovarianceFast(
+        transformedSource,
+        sourceMean,
+        targetCloud,
+        targetMean
       );
-      const targetCentered = this.centerPointCloud(
-        PointCloudHelper.fromPoints(correspondingPoints),
-        PointCloudHelper.computeCentroid(PointCloudHelper.fromPoints(correspondingPoints))
-      );
-
-      const sourceMatrix = this.pointCloudToMatrix(sourceCentered);
-      const targetMatrix = this.pointCloudToMatrix(targetCentered);
-      const cov = sourceMatrix.transpose().mmul(targetMatrix);
 
       const svdResult = computeSVD3x3(cov);
       const U = svdResult.U;
@@ -155,9 +190,6 @@ export class RegistrationAlgorithms {
       }
 
       // Compute translation
-      const sourceMean = PointCloudHelper.computeCentroid(transformedSource);
-      const targetMean = PointCloudHelper.computeCentroid(PointCloudHelper.fromPoints(correspondingPoints));
-      
       const R_array = R.to2DArray();
       const t = {
         x: targetMean.x - (R_array[0][0] * sourceMean.x + R_array[0][1] * sourceMean.y + R_array[0][2] * sourceMean.z),
@@ -197,6 +229,27 @@ export class RegistrationAlgorithms {
   }
 
   // Private helper methods
+
+  /**
+   * Downsample point cloud by taking every nth point.
+   */
+  private static downsample(cloud: PointCloud, factor: number): PointCloud {
+    if (factor <= 1) {
+      return cloud;
+    }
+    
+    const newCount = Math.floor(cloud.count / factor);
+    const downsampled = new Float32Array(newCount * 3);
+    
+    for (let i = 0; i < newCount; i++) {
+      const srcIdx = i * factor * 3;
+      downsampled[i * 3] = cloud.points[srcIdx];
+      downsampled[i * 3 + 1] = cloud.points[srcIdx + 1];
+      downsampled[i * 3 + 2] = cloud.points[srcIdx + 2];
+    }
+    
+    return { points: downsampled, count: newCount };
+  }
 
   private static centerPointCloud(cloud: PointCloud, centroid: { x: number; y: number; z: number }): PointCloud {
     const centered = new Float32Array(cloud.count * 3);
@@ -269,5 +322,45 @@ export class RegistrationAlgorithms {
     const [[a, b, c], [d, e, f], [g, h, i]] = matrix;
     return a * (e * i - f * h) - b * (d * i - f * g) + c * (d * h - e * g);
   }
+
+  /**
+   * Fast cross-covariance computation using Float32Array directly.
+   */
+  private static computeCrossCovarianceFast(
+    cloudA: PointCloud,
+    meanA: { x: number; y: number; z: number },
+    cloudB: PointCloud,
+    meanB: { x: number; y: number; z: number }
+  ): Matrix {
+    const cov = [
+      [0, 0, 0],
+      [0, 0, 0],
+      [0, 0, 0],
+    ];
+
+    const length = Math.min(cloudA.count, cloudB.count);
+    for (let i = 0; i < length; i++) {
+      const ax = cloudA.points[i * 3] - meanA.x;
+      const ay = cloudA.points[i * 3 + 1] - meanA.y;
+      const az = cloudA.points[i * 3 + 2] - meanA.z;
+      
+      const bx = cloudB.points[i * 3] - meanB.x;
+      const by = cloudB.points[i * 3 + 1] - meanB.y;
+      const bz = cloudB.points[i * 3 + 2] - meanB.z;
+
+      cov[0][0] += ax * bx;
+      cov[0][1] += ax * by;
+      cov[0][2] += ax * bz;
+      cov[1][0] += ay * bx;
+      cov[1][1] += ay * by;
+      cov[1][2] += ay * bz;
+      cov[2][0] += az * bx;
+      cov[2][1] += az * by;
+      cov[2][2] += az * bz;
+    }
+
+    return new Matrix(cov);
+  }
+
 }
 

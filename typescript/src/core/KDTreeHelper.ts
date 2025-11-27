@@ -6,9 +6,15 @@
 
 import { Point3D, PointCloud } from './types';
 import { PointCloudHelper } from './PointCloudHelper';
+import { SpatialGrid } from './SpatialGrid';
+
+// Interface for nearest neighbor search (supports both KD-tree and SpatialGrid)
+export interface NearestNeighborSearch {
+  nearestRaw(x: number, y: number, z: number): { point: Point3D; distance: number };
+}
 
 // Simple KD-Tree implementation for 3D points
-export class KDTree3D {
+export class KDTree3D implements NearestNeighborSearch {
   private points: Point3D[];
   private root: KDNode | null = null;
 
@@ -18,32 +24,72 @@ export class KDTree3D {
   }
 
   /**
-   * Find nearest neighbor to a point.
-   * 
-   * @param point Query point
-   * @returns Nearest point and distance
+   * Find nearest neighbor to a point using branch-and-bound search.
    */
   nearest(point: Point3D): { point: Point3D; distance: number } {
+    return this.nearestRaw(point.x, point.y, point.z);
+  }
+
+  /**
+   * Find nearest neighbor using raw coordinates (avoids Point3D object creation).
+   */
+  nearestRaw(x: number, y: number, z: number): { point: Point3D; distance: number } {
     if (!this.root || this.points.length === 0) {
       throw new Error('KD-Tree is empty');
     }
 
-    let best: { point: Point3D; distance: number } | null = null;
-    let bestDist = Infinity;
+    let bestPoint: Point3D | null = null;
+    let bestDistSq = Infinity;
 
-    this.search(this.root, point, 0, (node) => {
-      const dist = this.distance(point, node.point);
-      if (dist < bestDist) {
-        bestDist = dist;
-        best = { point: node.point, distance: dist };
+    // Iterative search using explicit stack
+    interface SearchTask {
+      node: KDNode;
+      depth: number;
+    }
+
+    const stack: SearchTask[] = [{ node: this.root, depth: 0 }];
+
+    while (stack.length > 0) {
+      const task = stack.pop()!;
+      const node = task.node;
+      const depth = task.depth;
+
+      // Compute distance squared directly (avoid function call overhead)
+      const dx = x - node.point.x;
+      const dy = y - node.point.y;
+      const dz = z - node.point.z;
+      const distSq = dx * dx + dy * dy + dz * dz;
+      
+      if (distSq < bestDistSq) {
+        bestDistSq = distSq;
+        bestPoint = node.point;
       }
-    });
 
-    if (!best) {
+      const axis = depth % 3;
+      const nodeVal = axis === 0 ? node.point.x : axis === 1 ? node.point.y : node.point.z;
+      const pointVal = axis === 0 ? x : axis === 1 ? y : z;
+
+      const nextBranch = pointVal < nodeVal ? node.left : node.right;
+      const oppositeBranch = pointVal < nodeVal ? node.right : node.left;
+
+      // Check if we need to search opposite branch
+      const diff = pointVal - nodeVal;
+      const needOpposite = oppositeBranch && diff * diff < bestDistSq;
+
+      // Push branches in reverse order (process primary first, then opposite if needed)
+      if (needOpposite) {
+        stack.push({ node: oppositeBranch!, depth: depth + 1 });
+      }
+      if (nextBranch) {
+        stack.push({ node: nextBranch, depth: depth + 1 });
+      }
+    }
+
+    if (!bestPoint) {
       throw new Error('No nearest neighbor found');
     }
 
-    return best;
+    return { point: bestPoint, distance: Math.sqrt(bestDistSq) };
   }
 
   /**
@@ -60,7 +106,7 @@ export class KDTree3D {
 
     const candidates: Array<{ point: Point3D; distance: number }> = [];
 
-    this.search(this.root, point, 0, (node) => {
+    this.traverse(this.root, (node) => {
       const dist = this.distance(point, node.point);
       candidates.push({ point: node.point, distance: dist });
     });
@@ -68,6 +114,27 @@ export class KDTree3D {
     // Sort by distance and return k nearest
     candidates.sort((a, b) => a.distance - b.distance);
     return candidates.slice(0, Math.min(k, candidates.length));
+  }
+
+  /**
+   * Batch nearest neighbor search for multiple points.
+   * More efficient than calling nearest() multiple times.
+   * 
+   * @param points Array of query points
+   * @returns Array of nearest points and distances
+   */
+  batchNearest(points: Point3D[]): Array<{ point: Point3D; distance: number }> {
+    if (!this.root || this.points.length === 0) {
+      throw new Error('KD-Tree is empty');
+    }
+
+    const results: Array<{ point: Point3D; distance: number }> = [];
+    
+    for (const point of points) {
+      results.push(this.nearest(point));
+    }
+    
+    return results;
   }
 
   /**
@@ -85,7 +152,7 @@ export class KDTree3D {
     const results: Array<{ point: Point3D; distance: number }> = [];
     const radiusSq = radius * radius;
 
-    this.search(this.root, point, 0, (node) => {
+    this.traverse(this.root, (node) => {
       const distSq = this.distanceSquared(point, node.point);
       if (distSq <= radiusSq) {
         results.push({ point: node.point, distance: Math.sqrt(distSq) });
@@ -104,49 +171,87 @@ export class KDTree3D {
       return new KDNode(points[0]);
     }
 
-    const axis = depth % 3; // 0=x, 1=y, 2=z
-    const sorted = [...points].sort((a, b) => {
-      const aVal = axis === 0 ? a.x : axis === 1 ? a.y : a.z;
-      const bVal = axis === 0 ? b.x : axis === 1 ? b.y : b.z;
-      return aVal - bVal;
-    });
+    // Use iterative approach with explicit stack, working with indices to avoid array copies
+    interface BuildTask {
+      start: number;
+      end: number;
+      depth: number;
+      parent: KDNode | null;
+      isLeft: boolean;
+    }
 
-    const median = Math.floor(sorted.length / 2);
-    const node = new KDNode(sorted[median]);
+    // Work on a single array, use indices instead of slicing
+    const workingArray = [...points]; // Single copy at start
+    const stack: BuildTask[] = [{ start: 0, end: workingArray.length, depth, parent: null, isLeft: false }];
+    let actualRoot: KDNode | null = null;
 
-    node.left = this.buildTree(sorted.slice(0, median), depth + 1);
-    node.right = this.buildTree(sorted.slice(median + 1), depth + 1);
+    while (stack.length > 0) {
+      const task = stack.pop()!;
+      const length = task.end - task.start;
+      
+      if (length === 0) {
+        continue;
+      }
 
-    return node;
+      if (length === 1) {
+        const node = new KDNode(workingArray[task.start]);
+        if (task.parent) {
+          if (task.isLeft) {
+            task.parent.left = node;
+          } else {
+            task.parent.right = node;
+          }
+        } else {
+          actualRoot = node;
+        }
+        continue;
+      }
+
+      const axis = task.depth % 3;
+      const medianIdx = task.start + Math.floor(length / 2);
+      
+      // Use quickselect on the subarray range
+      this.quickselect(workingArray, medianIdx, task.start, task.end - 1, axis);
+      
+      const node = new KDNode(workingArray[medianIdx]);
+
+      if (task.parent) {
+        if (task.isLeft) {
+          task.parent.left = node;
+        } else {
+          task.parent.right = node;
+        }
+      } else {
+        actualRoot = node;
+      }
+
+      // Push children using indices (no array slicing)
+      if (medianIdx > task.start) {
+        stack.push({ start: task.start, end: medianIdx, depth: task.depth + 1, parent: node, isLeft: true });
+      }
+      if (medianIdx + 1 < task.end) {
+        stack.push({ start: medianIdx + 1, end: task.end, depth: task.depth + 1, parent: node, isLeft: false });
+      }
+    }
+
+    return actualRoot;
   }
 
-  private search(
-    node: KDNode | null,
-    point: Point3D,
-    depth: number,
-    visit: (node: KDNode) => void
-  ): void {
+  private traverse(node: KDNode | null, visit: (node: KDNode) => void): void {
     if (!node) {
       return;
     }
-
-    visit(node);
-
-    const axis = depth % 3;
-    const nodeVal = axis === 0 ? node.point.x : axis === 1 ? node.point.y : node.point.z;
-    const pointVal = axis === 0 ? point.x : axis === 1 ? point.y : point.z;
-
-    const diff = pointVal - nodeVal;
-    const primary = diff < 0 ? node.left : node.right;
-    const secondary = diff < 0 ? node.right : node.left;
-
-    if (primary) {
-      this.search(primary, point, depth + 1, visit);
-    }
-
-    // Check if we need to search the other side
-    if (secondary && Math.abs(diff) < this.distance(point, node.point)) {
-      this.search(secondary, point, depth + 1, visit);
+    // Iterative traversal using explicit stack
+    const stack: KDNode[] = [node];
+    while (stack.length > 0) {
+      const current = stack.pop()!;
+      visit(current);
+      if (current.right) {
+        stack.push(current.right);
+      }
+      if (current.left) {
+        stack.push(current.left);
+      }
     }
   }
 
@@ -162,6 +267,50 @@ export class KDTree3D {
     const dy = p1.y - p2.y;
     const dz = p1.z - p2.z;
     return dx * dx + dy * dy + dz * dz;
+  }
+
+  /**
+   * Quickselect algorithm to find k-th smallest element (O(n) average case).
+   * Used for efficient median finding in KD-tree construction.
+   * Iterative version to avoid stack overflow on large arrays.
+   */
+  private quickselect(arr: Point3D[], k: number, left: number, right: number, axis: number): void {
+    let l = left;
+    let r = right;
+
+    while (l < r) {
+      const pivotIdx = this.partition(arr, l, r, axis);
+      
+      if (k === pivotIdx) {
+        return;
+      } else if (k < pivotIdx) {
+        r = pivotIdx - 1;
+      } else {
+        l = pivotIdx + 1;
+      }
+    }
+  }
+
+  private partition(arr: Point3D[], left: number, right: number, axis: number): number {
+    const pivotValue = axis === 0 ? arr[right].x : axis === 1 ? arr[right].y : arr[right].z;
+    let i = left;
+
+    for (let j = left; j < right; j++) {
+      const jVal = axis === 0 ? arr[j].x : axis === 1 ? arr[j].y : arr[j].z;
+      if (jVal < pivotValue) {
+        // Swap using temp variable (avoid array destructuring for large arrays)
+        const temp = arr[i];
+        arr[i] = arr[j];
+        arr[j] = temp;
+        i++;
+      }
+    }
+
+    // Swap pivot
+    const temp = arr[i];
+    arr[i] = arr[right];
+    arr[right] = temp;
+    return i;
   }
 }
 
@@ -179,9 +328,28 @@ class KDNode {
  * Create KD-Tree from point cloud.
  * 
  * @param cloud Point cloud
- * @returns KD-Tree instance
+ * @returns KD-Tree instance or SpatialGrid for very large clouds
  */
-export function createKDTree(cloud: PointCloud): KDTree3D {
+class SpatialGridAdapter implements NearestNeighborSearch {
+  private grid: SpatialGrid;
+  
+  constructor(grid: SpatialGrid) {
+    this.grid = grid;
+  }
+  
+  nearestRaw(x: number, y: number, z: number): { point: Point3D; distance: number } {
+    return this.grid.nearest(x, y, z);
+  }
+}
+
+export function createKDTree(cloud: PointCloud): NearestNeighborSearch {
+  // For very large clouds, use SpatialGrid instead of KD-tree to avoid stack overflow
+  if (cloud.count > 100000) {
+    // Pass PointCloud directly - SpatialGrid works with Float32Array
+    const grid = new SpatialGrid(cloud);
+    return new SpatialGridAdapter(grid);
+  }
+  
   const points = PointCloudHelper.toPoints(cloud);
   return new KDTree3D(points);
 }

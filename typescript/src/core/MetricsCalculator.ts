@@ -33,7 +33,7 @@ export class MetricsCalculator {
     const distances: number[] = [];
     
     for (const transformedPoint of transformedPoints) {
-      const nearest = targetTree.nearest(transformedPoint);
+      const nearest = targetTree.nearestRaw(transformedPoint.x, transformedPoint.y, transformedPoint.z);
       distances.push(nearest.distance);
     }
 

@@ -1,0 +1,53 @@
+[
+  {
+    "name": "Clamp",
+    "sourcePoints": 10212,
+    "targetPoints": 10212,
+    "alignedPoints": 10212,
+    "iterations": 3,
+    "rmse": 0,
+    "maxError": 0,
+    "meanError": 0,
+    "medianError": 0,
+    "durationMs": 2489,
+    "loadTimeMs": 17,
+    "alignTimeMs": 0,
+    "pcaTimeMs": 21,
+    "icpTimeMs": 2436,
+    "updatedAt": "2025-11-27T11:31:30.276Z"
+  },
+  {
+    "name": "Clouds3",
+    "sourcePoints": 47303,
+    "targetPoints": 47303,
+    "alignedPoints": 47303,
+    "iterations": 3,
+    "rmse": 0,
+    "maxError": 0,
+    "meanError": 0,
+    "medianError": 0,
+    "durationMs": 5982,
+    "loadTimeMs": 89,
+    "alignTimeMs": 0,
+    "pcaTimeMs": 44,
+    "icpTimeMs": 5757,
+    "updatedAt": "2025-11-27T11:31:17.954Z"
+  },
+  {
+    "name": "Slide",
+    "sourcePoints": 155626,
+    "targetPoints": 155626,
+    "alignedPoints": 38906,
+    "iterations": 3,
+    "rmse": 0,
+    "maxError": 0,
+    "meanError": 0,
+    "medianError": 0,
+    "durationMs": 5816,
+    "loadTimeMs": 173,
+    "alignTimeMs": 5,
+    "pcaTimeMs": 35,
+    "icpTimeMs": 5535,
+    "updatedAt": "2025-11-27T11:59:53.458Z"
+  }
+]
