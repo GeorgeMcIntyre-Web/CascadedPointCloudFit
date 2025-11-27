@@ -9,7 +9,8 @@ describe('TransformationUtils', () => {
   describe('floatToMaxDecimalsString', () => {
     it('should format float with default decimals', () => {
       const result = TransformationUtils.floatToMaxDecimalsString(1.23456789);
-      expect(result).toContain('1.23456789');
+      // Default is 50 decimals, so check it starts with the number
+      expect(result).toMatch(/^1\.23456789/);
     });
 
     it('should format float with specified decimals', () => {
