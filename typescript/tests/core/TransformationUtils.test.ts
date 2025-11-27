@@ -9,8 +9,10 @@ describe('TransformationUtils', () => {
   describe('floatToMaxDecimalsString', () => {
     it('should format float with default decimals', () => {
       const result = TransformationUtils.floatToMaxDecimalsString(1.23456789);
-      // Default is 50 decimals, so check it starts with the number
-      expect(result).toMatch(/^1\.23456789/);
+      // Default is 50 decimals, check it starts with approximately the right value
+      // (floating point precision means exact representation isn't possible)
+      expect(result).toMatch(/^1\.2345678/);
+      expect(result.length).toBeGreaterThan(10); // Should have many decimal places
     });
 
     it('should format float with specified decimals', () => {
