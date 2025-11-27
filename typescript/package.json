@@ -12,7 +12,12 @@
     "test:coverage": "vitest run --coverage",
     "lint": "eslint src --ext .ts",
     "format": "prettier --write \"src/**/*.ts\"",
-    "cli": "tsx src/cli/index.ts"
+    "cli": "tsx src/cli/index.ts",
+    "start": "node dist/api/server.js",
+    "prepublishOnly": "npm run build"
+  },
+  "bin": {
+    "cascaded-pointcloud-fit": "./dist/bin/cli.js"
   },
   "keywords": [
     "point-cloud",
