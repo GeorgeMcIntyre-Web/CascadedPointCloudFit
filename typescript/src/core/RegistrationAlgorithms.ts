@@ -7,6 +7,7 @@
 import { Matrix } from 'ml-matrix';
 import { PointCloud, Transform4x4, ICPResult } from './types';
 import { PointCloudHelper } from './PointCloudHelper';
+import { computeSVD3x3 } from './SVDHelper';
 
 export class RegistrationAlgorithms {
   /**
@@ -41,9 +42,7 @@ export class RegistrationAlgorithms {
     const cov = sourceMatrix.transpose().mmul(targetMatrix);
 
     // SVD: cov = U * S * V^T
-    // ml-matrix uses different SVD API - need to use eigenDecomposition or manual SVD
-    // For now, use manual SVD calculation
-    const svdResult = this.computeSVD(cov);
+    const svdResult = computeSVD3x3(cov);
     const U = svdResult.U;
     const V = svdResult.V;
     
@@ -151,7 +150,7 @@ export class RegistrationAlgorithms {
       const targetMatrix = this.pointCloudToMatrix(targetCentered);
       const cov = sourceMatrix.transpose().mmul(targetMatrix);
 
-      const svdResult = this.computeSVD(cov);
+      const svdResult = computeSVD3x3(cov);
       const U = svdResult.U;
       let V = svdResult.V;
 
@@ -281,61 +280,11 @@ export class RegistrationAlgorithms {
   }
 
   /**
-   * Compute SVD manually for 3x3 matrices.
-   * Uses a simplified approach for small matrices.
-   */
-  private static computeSVD(matrix: Matrix): { U: Matrix; S: Matrix; V: Matrix } {
-    // For 3x3 matrices, compute SVD manually
-    const A = matrix.to2DArray();
-    const AtA = this.multiply3x3Matrices(
-      [[A[0][0], A[1][0], A[2][0]], [A[0][1], A[1][1], A[2][1]], [A[0][2], A[1][2], A[2][2]]],
-      A
-    );
-    
-    // Compute eigenvalues and eigenvectors of AtA (simplified for 3x3)
-    const eigenResult = this.eigenDecomposition3x3(AtA);
-    const V = new Matrix(eigenResult.eigenvectors);
-    
-    // S is the square root of eigenvalues
-    const eigenvalues = eigenResult.eigenvalues;
-    const S = Matrix.diag(eigenvalues.map((e: number) => Math.sqrt(Math.max(0, e))));
-    
-    // U = A * V * S^(-1)
-    const S_inv_data = eigenvalues.map((e: number) => 1 / Math.sqrt(Math.max(1e-10, e)));
-    const S_inv = Matrix.diag(S_inv_data);
-    const U = matrix.mmul(V).mmul(S_inv);
-    
-    return { U, S, V };
-  }
-
-  /**
    * Compute determinant of 3x3 matrix.
    */
   private static determinant3x3(matrix: number[][]): number {
     const [[a, b, c], [d, e, f], [g, h, i]] = matrix;
     return a * (e * i - f * h) - b * (d * i - f * g) + c * (d * h - e * g);
-  }
-
-  /**
-   * Simple eigen decomposition for 3x3 matrices (approximation).
-   * For production, consider using a proper numerical library.
-   */
-  private static eigenDecomposition3x3(matrix: number[][]): {
-    eigenvalues: number[];
-    eigenvectors: number[][];
-  } {
-    // Simplified: For symmetric 3x3, use power iteration
-    // This is a placeholder - in production, use a proper library
-    const eigenvalues = [1, 1, 1]; // Placeholder
-    const eigenvectors = [
-      [1, 0, 0],
-      [0, 1, 0],
-      [0, 0, 1]
-    ];
-    
-    // TODO: Implement proper eigen decomposition
-    // For now, return identity (will need proper implementation)
-    return { eigenvalues, eigenvectors };
   }
 }
 
