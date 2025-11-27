@@ -34,13 +34,17 @@ export class SpatialGrid {
     }
     
     this.bounds = { minX, maxX, minY, maxY, minZ, maxZ };
-    
+
     // Auto-calculate cell size if not provided
+    // Optimize cell size for better locality - aim for ~50-100 points per cell on average
     const rangeX = maxX - minX;
     const rangeY = maxY - minY;
     const rangeZ = maxZ - minZ;
     const avgRange = (rangeX + rangeY + rangeZ) / 3;
-    this.cellSize = cellSize || Math.max(avgRange / Math.cbrt(cloud.count), 0.1);
+    const targetPointsPerCell = 75; // Sweet spot for search performance
+    const estimatedCells = Math.max(1, cloud.count / targetPointsPerCell);
+    const cellsPerDim = Math.cbrt(estimatedCells);
+    this.cellSize = cellSize || Math.max(avgRange / cellsPerDim, 0.01);
     
     // Populate grid using indices (no Point3D object creation)
     for (let i = 0; i < cloud.count; i++) {
@@ -66,23 +70,31 @@ export class SpatialGrid {
     // Search in the cell and neighboring cells
     const centerKey = this.getCellKey(x, y, z);
     const [ci, cj, ck] = centerKey.split(',').map(Number);
-    
+
     let bestIdx: number | null = null;
     let bestDistSq = Infinity;
     const points = this.cloud.points;
-    
-    // Expand search radius if no points found
+
+    // Start with immediate neighbors (radius 1) - most queries succeed here
     let radius = 1;
-    const maxRadius = 10; // Limit expansion
-    
-    while (bestIdx === null && radius <= maxRadius) {
-      // Search in (2*radius+1)^3 neighborhood
+    const maxRadius = 5; // Reduced from 10 - if not found in 5, do linear search
+
+    while (radius <= maxRadius) {
+      let foundInThisRadius = false;
+
+      // Only search shell (not entire cube) to reduce redundant checks
       for (let di = -radius; di <= radius; di++) {
         for (let dj = -radius; dj <= radius; dj++) {
           for (let dk = -radius; dk <= radius; dk++) {
+            // Skip inner cells (already searched in previous radius)
+            if (radius > 1 && Math.abs(di) < radius && Math.abs(dj) < radius && Math.abs(dk) < radius) {
+              continue;
+            }
+
             const key = `${ci + di},${cj + dj},${ck + dk}`;
             const cellIndices = this.grid.get(key);
             if (cellIndices) {
+              foundInThisRadius = true;
               for (const idx of cellIndices) {
                 const px = points[idx * 3];
                 const py = points[idx * 3 + 1];
@@ -100,10 +112,17 @@ export class SpatialGrid {
           }
         }
       }
-      
-      if (bestIdx === null) {
-        radius++;
+
+      // If we found points, we can potentially stop early
+      if (bestIdx !== null) {
+        // Check if expanding further could find a closer point
+        const maxPossibleDistInNextShell = (radius + 1) * this.cellSize * Math.sqrt(3);
+        if (bestDistSq < maxPossibleDistInNextShell * maxPossibleDistInNextShell) {
+          break; // Current best is closer than any point in next shell
+        }
       }
+
+      radius++;
     }
     
     // Fallback: linear search if still no point found

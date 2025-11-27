@@ -41,16 +41,20 @@ export class KDTree3D implements NearestNeighborSearch {
     let bestPoint: Point3D | null = null;
     let bestDistSq = Infinity;
 
-    // Iterative search using explicit stack
+    // Iterative search using explicit pre-allocated stack
     interface SearchTask {
       node: KDNode;
       depth: number;
     }
 
-    const stack: SearchTask[] = [{ node: this.root, depth: 0 }];
+    const maxSearchStackSize = Math.ceil(Math.log2(this.points.length + 1)) * 3; // Depth * 3 for worst case
+    const stack: SearchTask[] = new Array(maxSearchStackSize);
+    let stackPointer = 0;
 
-    while (stack.length > 0) {
-      const task = stack.pop()!;
+    stack[stackPointer++] = { node: this.root, depth: 0 };
+
+    while (stackPointer > 0) {
+      const task = stack[--stackPointer];
       const node = task.node;
       const depth = task.depth;
 
@@ -59,7 +63,7 @@ export class KDTree3D implements NearestNeighborSearch {
       const dy = y - node.point.y;
       const dz = z - node.point.z;
       const distSq = dx * dx + dy * dy + dz * dz;
-      
+
       if (distSq < bestDistSq) {
         bestDistSq = distSq;
         bestPoint = node.point;
@@ -76,12 +80,12 @@ export class KDTree3D implements NearestNeighborSearch {
       const diff = pointVal - nodeVal;
       const needOpposite = oppositeBranch && diff * diff < bestDistSq;
 
-      // Push branches in reverse order (process primary first, then opposite if needed)
+      // Push branches (opposite first, then next, so next is processed first)
       if (needOpposite) {
-        stack.push({ node: oppositeBranch!, depth: depth + 1 });
+        stack[stackPointer++] = { node: oppositeBranch!, depth: depth + 1 };
       }
       if (nextBranch) {
-        stack.push({ node: nextBranch, depth: depth + 1 });
+        stack[stackPointer++] = { node: nextBranch, depth: depth + 1 };
       }
     }
 
@@ -182,13 +186,19 @@ export class KDTree3D implements NearestNeighborSearch {
 
     // Work on a single array, use indices instead of slicing
     const workingArray = [...points]; // Single copy at start
-    const stack: BuildTask[] = [{ start: 0, end: workingArray.length, depth, parent: null, isLeft: false }];
+
+    // Use a pre-allocated stack with maximum possible size to avoid dynamic growth
+    const maxStackSize = Math.ceil(Math.log2(points.length + 1)) * 2 + 10; // Depth * 2 branches + buffer
+    const stack: BuildTask[] = new Array(maxStackSize);
+    let stackPointer = 0;
+
+    stack[stackPointer++] = { start: 0, end: workingArray.length, depth, parent: null, isLeft: false };
     let actualRoot: KDNode | null = null;
 
-    while (stack.length > 0) {
-      const task = stack.pop()!;
+    while (stackPointer > 0) {
+      const task = stack[--stackPointer];
       const length = task.end - task.start;
-      
+
       if (length === 0) {
         continue;
       }
@@ -209,10 +219,10 @@ export class KDTree3D implements NearestNeighborSearch {
 
       const axis = task.depth % 3;
       const medianIdx = task.start + Math.floor(length / 2);
-      
+
       // Use quickselect on the subarray range
       this.quickselect(workingArray, medianIdx, task.start, task.end - 1, axis);
-      
+
       const node = new KDNode(workingArray[medianIdx]);
 
       if (task.parent) {
@@ -225,12 +235,13 @@ export class KDTree3D implements NearestNeighborSearch {
         actualRoot = node;
       }
 
-      // Push children using indices (no array slicing)
-      if (medianIdx > task.start) {
-        stack.push({ start: task.start, end: medianIdx, depth: task.depth + 1, parent: node, isLeft: true });
-      }
+      // Push right child first (will be processed second)
       if (medianIdx + 1 < task.end) {
-        stack.push({ start: medianIdx + 1, end: task.end, depth: task.depth + 1, parent: node, isLeft: false });
+        stack[stackPointer++] = { start: medianIdx + 1, end: task.end, depth: task.depth + 1, parent: node, isLeft: false };
+      }
+      // Push left child second (will be processed first)
+      if (medianIdx > task.start) {
+        stack[stackPointer++] = { start: task.start, end: medianIdx, depth: task.depth + 1, parent: node, isLeft: true };
       }
     }
 
@@ -343,13 +354,14 @@ class SpatialGridAdapter implements NearestNeighborSearch {
 }
 
 export function createKDTree(cloud: PointCloud): NearestNeighborSearch {
-  // For very large clouds, use SpatialGrid instead of KD-tree to avoid stack overflow
-  if (cloud.count > 100000) {
+  // For large clouds (>60k), use SpatialGrid instead of KD-tree
+  // toPoints() creates many objects which can cause memory issues for very large clouds
+  if (cloud.count > 60000) {
     // Pass PointCloud directly - SpatialGrid works with Float32Array
     const grid = new SpatialGrid(cloud);
     return new SpatialGridAdapter(grid);
   }
-  
+
   const points = PointCloudHelper.toPoints(cloud);
   return new KDTree3D(points);
 }

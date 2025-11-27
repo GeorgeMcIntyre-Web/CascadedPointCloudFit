@@ -24,25 +24,39 @@ export class MetricsCalculator {
   ): Metrics {
     // Transform source points
     const transformedSource = PointCloudHelper.applyTransformation(source, transform);
-    const transformedPoints = PointCloudHelper.toPoints(transformedSource);
 
     // Build KD-Tree from target for efficient nearest neighbor search
     const targetTree = createKDTree(target);
 
     // Find nearest neighbors and compute distances
-    const distances: number[] = [];
-    
-    for (const transformedPoint of transformedPoints) {
-      const nearest = targetTree.nearestRaw(transformedPoint.x, transformedPoint.y, transformedPoint.z);
-      distances.push(nearest.distance);
+    // Work directly with Float32Array, avoid Point3D object creation
+    const distances: number[] = new Array(transformedSource.count);
+    let sumDistSq = 0;
+    let sumDist = 0;
+    let maxError = -Infinity;
+
+    const points = transformedSource.points;
+    for (let i = 0; i < transformedSource.count; i++) {
+      const x = points[i * 3];
+      const y = points[i * 3 + 1];
+      const z = points[i * 3 + 2];
+
+      const nearest = targetTree.nearestRaw(x, y, z);
+      const dist = nearest.distance;
+
+      distances[i] = dist;
+      sumDistSq += dist * dist;
+      sumDist += dist;
+      if (dist > maxError) {
+        maxError = dist;
+      }
     }
 
+    const count = transformedSource.count;
+
     // Calculate metrics
-    const rmse = Math.sqrt(
-      distances.reduce((sum, d) => sum + d * d, 0) / distances.length
-    );
-    const maxError = Math.max(...distances);
-    const meanError = distances.reduce((sum, d) => sum + d, 0) / distances.length;
+    const rmse = Math.sqrt(sumDistSq / count);
+    const meanError = sumDist / count;
     const medianError = this.median(distances);
 
     return {

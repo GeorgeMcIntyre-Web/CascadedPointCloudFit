@@ -29,13 +29,28 @@ export class RegistrationAlgorithms {
       throw new Error('Target point cloud must have at least 3 points');
     }
 
-    // Compute centroids
+    // For very large clouds, downsample during PCA computation to avoid stack overflow in matrix operations
+    let workingSource = source;
+    let workingTarget = target;
+
+    // Only downsample for very large clouds where matrix operations would fail
+    if (source.count > 80000) {
+      const downsampleFactor = Math.ceil(source.count / 10000); // Downsample to ~10k for PCA
+      workingSource = this.downsample(source, downsampleFactor);
+      workingTarget = this.downsample(target, downsampleFactor);
+    } else if (source.count > 50000) {
+      const downsampleFactor = Math.ceil(source.count / 15000); // Lighter downsampling for medium clouds
+      workingSource = this.downsample(source, downsampleFactor);
+      workingTarget = this.downsample(target, downsampleFactor);
+    }
+
+    // Compute centroids from original clouds (not downsampled)
     const sourceCentroid = PointCloudHelper.computeCentroid(source);
     const targetCentroid = PointCloudHelper.computeCentroid(target);
 
-    // Center point clouds
-    const sourceCentered = this.centerPointCloud(source, sourceCentroid);
-    const targetCentered = this.centerPointCloud(target, targetCentroid);
+    // Center point clouds (use downsampled versions)
+    const sourceCentered = this.centerPointCloud(workingSource, sourceCentroid);
+    const targetCentered = this.centerPointCloud(workingTarget, targetCentroid);
 
     // Compute covariance matrix: source_centered^T * target_centered
     const sourceMatrix = this.pointCloudToMatrix(sourceCentered);
@@ -84,13 +99,13 @@ export class RegistrationAlgorithms {
     tolerance: number = 1e-7
   ): ICPResult {
     // For very large point clouds, use adaptive downsampling
-    // Very large clouds (>100k) need more aggressive downsampling
-    const useDownsampling = source.count > 20000;
-    let downsampleFactor = useDownsampling ? Math.ceil(source.count / 10000) : 1;
-    
-    // For extremely large clouds, use even more aggressive downsampling
+    // Use lighter downsampling since KD-tree is now more efficient
+    const useDownsampling = source.count > 30000;
+    let downsampleFactor = useDownsampling ? Math.ceil(source.count / 15000) : 1;
+
+    // For extremely large clouds, use moderate downsampling
     if (source.count > 100000) {
-      downsampleFactor = Math.ceil(source.count / 20000); // Downsample to ~20k points
+      downsampleFactor = Math.ceil(source.count / 30000); // Downsample to ~30k points
     }
     // Validate inputs
     if (source.count < 3) {
@@ -262,13 +277,15 @@ export class RegistrationAlgorithms {
   }
 
   private static pointCloudToMatrix(cloud: PointCloud): Matrix {
-    const data: number[][] = [];
+    // For very large clouds, avoid creating intermediate arrays
+    // Pre-allocate the matrix data
+    const data: number[][] = new Array(cloud.count);
     for (let i = 0; i < cloud.count; i++) {
-      data.push([
+      data[i] = [
         cloud.points[i * 3],
         cloud.points[i * 3 + 1],
         cloud.points[i * 3 + 2]
-      ]);
+      ];
     }
     return new Matrix(data);
   }

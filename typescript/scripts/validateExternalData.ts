@@ -91,38 +91,7 @@ async function runDataset(dataset: DatasetCase): Promise<ValidationResult> {
     const loadTime = Date.now() - loadStart;
 
     const alignStart = Date.now();
-    let [alignedSource, alignedTarget] = PointCloudReader.alignCloudSizes(source, target);
-    
-    // For very large clouds (>100k), aggressively downsample before processing
-    if (alignedSource.count > 100000) {
-      const downsampleFactor = Math.ceil(alignedSource.count / 50000); // Downsample to ~50k
-      const downsampledSourcePoints = new Float32Array(Math.floor(alignedSource.count / downsampleFactor) * 3);
-      const downsampledTargetPoints = new Float32Array(Math.floor(alignedTarget.count / downsampleFactor) * 3);
-      
-      for (let i = 0; i < Math.floor(alignedSource.count / downsampleFactor); i++) {
-        const srcIdx = i * downsampleFactor;
-        downsampledSourcePoints[i * 3] = alignedSource.points[srcIdx * 3];
-        downsampledSourcePoints[i * 3 + 1] = alignedSource.points[srcIdx * 3 + 1];
-        downsampledSourcePoints[i * 3 + 2] = alignedSource.points[srcIdx * 3 + 2];
-      }
-      
-      for (let i = 0; i < Math.floor(alignedTarget.count / downsampleFactor); i++) {
-        const tgtIdx = i * downsampleFactor;
-        downsampledTargetPoints[i * 3] = alignedTarget.points[tgtIdx * 3];
-        downsampledTargetPoints[i * 3 + 1] = alignedTarget.points[tgtIdx * 3 + 1];
-        downsampledTargetPoints[i * 3 + 2] = alignedTarget.points[tgtIdx * 3 + 2];
-      }
-      
-      alignedSource = {
-        points: downsampledSourcePoints,
-        count: Math.floor(alignedSource.count / downsampleFactor)
-      };
-      alignedTarget = {
-        points: downsampledTargetPoints,
-        count: Math.floor(alignedTarget.count / downsampleFactor)
-      };
-    }
-    
+    const [alignedSource, alignedTarget] = PointCloudReader.alignCloudSizes(source, target);
     const alignTime = Date.now() - alignStart;
 
     const pcaStart = Date.now();
