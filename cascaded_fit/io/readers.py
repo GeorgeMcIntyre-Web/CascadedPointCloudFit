@@ -15,7 +15,7 @@ class PointCloudReader:
     """Read point cloud files in various formats."""
 
     @staticmethod
-    def read_point_cloud_file(file_path: str):
+    def read_point_cloud_file(file_path: str) -> o3d.geometry.PointCloud:
         """
         Read point cloud from file (CSV or PLY).
 

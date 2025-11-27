@@ -1,11 +1,15 @@
 """ICP (Iterative Closest Point) fitter."""
 
 import time
+from typing import TYPE_CHECKING, Optional, Dict, Any
 import numpy as np
 import open3d as o3d
 from cascaded_fit.utils.logger import Logger
 from cascaded_fit.utils.config import Config
 from cascaded_fit.utils.exceptions import RegistrationError
+
+if TYPE_CHECKING:
+    from cascaded_fit.utils.type_hints import Transform4x4
 
 logger = Logger.get(__name__)
 
@@ -14,14 +18,14 @@ class FitResult:
     """Result from point cloud fitting."""
 
     def __init__(self, transformation: np.ndarray, inlier_rmse: float,
-                 rmse_threshold: float, max_error: float):
+                 rmse_threshold: float, max_error: float) -> None:
         self.transformation = transformation
         self.inlier_rmse = inlier_rmse
         self.max_error = max_error
         self.rmse_threshold = rmse_threshold
         self.is_success = self.inlier_rmse < self.rmse_threshold
 
-    def to_dict(self):
+    def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary."""
         return {
             "transformation": self.transformation.tolist() if isinstance(self.transformation, np.ndarray) else self.transformation,
@@ -35,11 +39,11 @@ class FitResult:
 class IcpFitter:
     """ICP-based point cloud fitter."""
 
-    def __init__(self, rmse_threshold: float = None,
-                 max_correspondence_distance: float = None,
-                 relative_fitness: float = None,
-                 relative_rmse: float = None,
-                 max_iteration: int = None):
+    def __init__(self, rmse_threshold: Optional[float] = None,
+                 max_correspondence_distance: Optional[float] = None,
+                 relative_fitness: Optional[float] = None,
+                 relative_rmse: Optional[float] = None,
+                 max_iteration: Optional[int] = None) -> None:
         """
         Initialize ICP fitter.
 
@@ -63,7 +67,9 @@ class IcpFitter:
 
         logger.info(f"IcpFitter initialized: threshold={self.rmse_threshold}, max_iter={self.max_iteration}")
 
-    def fit(self, source_cloud, target_cloud, initial_guess_transformation=None):
+    def fit(self, source_cloud: o3d.geometry.PointCloud,
+            target_cloud: o3d.geometry.PointCloud,
+            initial_guess_transformation: Optional[np.ndarray] = None) -> "FitResult":
         """
         Fit source cloud to target cloud using ICP.
 
@@ -101,21 +107,21 @@ class IcpFitter:
         reverse_result = self.reverse_icp()
         return reverse_result
 
-    def _fit_swapped(self):
+    def _fit_swapped(self) -> "FitResult":
         """Fit with swapped source and target."""
         initial_inv = np.linalg.inv(self.initial_guess_transformation)
         result = self._execute_icp(self.target_cloud, self.source_cloud, initial_inv)
         result.transformation = np.linalg.inv(result.transformation)
         return result
 
-    def forward_icp(self):
+    def forward_icp(self) -> "FitResult":
         """Execute forward ICP."""
         logger.info("Trying forward ICP fit...")
         result = self._execute_icp(self.source_cloud, self.target_cloud,
                                    self.initial_guess_transformation)
         return result
 
-    def reverse_icp(self):
+    def reverse_icp(self) -> "FitResult":
         """Execute reverse ICP."""
         logger.info("Trying reverse ICP fit...")
         initial_guess_transformation_reversed = np.linalg.inv(self.initial_guess_transformation)
@@ -124,7 +130,9 @@ class IcpFitter:
         result.transformation = np.linalg.inv(result.transformation)
         return result
 
-    def _execute_icp(self, source_cloud, target_cloud, initial_guess_transformation):
+    def _execute_icp(self, source_cloud: o3d.geometry.PointCloud,
+                     target_cloud: o3d.geometry.PointCloud,
+                     initial_guess_transformation: np.ndarray) -> "FitResult":
         """Execute ICP registration."""
         start_time = time.time()
 
@@ -149,8 +157,10 @@ class IcpFitter:
             logger.debug(f"ICP Fitness: {registration_icp.fitness:.6f}")
             logger.debug(f"ICP RMSE: {registration_icp.inlier_rmse:.6f}")
 
-            # Estimate max error (using 3x RMSE as proxy)
-            max_error = registration_icp.inlier_rmse * 3
+            # Estimate max error (using configurable factor, default 3x RMSE as proxy)
+            # TODO: Make this configurable via config file
+            MAX_ERROR_FACTOR = 3.0
+            max_error = registration_icp.inlier_rmse * MAX_ERROR_FACTOR
 
             result = FitResult(
                 registration_icp.transformation,

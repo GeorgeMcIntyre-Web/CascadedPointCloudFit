@@ -58,7 +58,7 @@ class Config:
         return cls._instance
 
     @classmethod
-    def load(cls, config_path: Optional[str] = None):
+    def load(cls, config_path: Optional[str] = None) -> "Config":
         """Load configuration from YAML file."""
         if config_path is None:
             # Default to config/default.yaml in project root

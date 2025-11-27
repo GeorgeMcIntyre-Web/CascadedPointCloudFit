@@ -12,7 +12,7 @@ from cascaded_fit.utils.config import Config
 class PointCloudValidator:
     """Validate point cloud data."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.min_points = Config.get('validation.min_points', 100)
         self.max_points = Config.get('validation.max_points', 10_000_000)
         self.check_nan = Config.get('validation.check_nan', True)

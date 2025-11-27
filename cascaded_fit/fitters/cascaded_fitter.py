@@ -1,12 +1,16 @@
 """Cascaded fitter combining ICP and FGR."""
 
 import time
+from typing import TYPE_CHECKING, Dict, Any, Optional
 import open3d as o3d
 import copy
-from typing import Dict, Any, Optional
 from cascaded_fit.utils.logger import Logger
 from cascaded_fit.utils.exceptions import RegistrationError, ConvergenceError
 from cascaded_fit.io.readers import PointCloudReader
+
+if TYPE_CHECKING:
+    from cascaded_fit.fitters.icp_fitter import IcpFitter, FitResult
+    from cascaded_fit.fitters.fgr_fitter import FgrFitter
 
 logger = Logger.get(__name__)
 
@@ -14,16 +18,18 @@ logger = Logger.get(__name__)
 class CascadedFitter:
     """Orchestrates cascaded registration using ICP and FGR."""
 
-    def __init__(self, icp_fitter=None, fgr_fitter=None, visualise: bool = False,
-                 visualize: bool = False, **kwargs):
+    def __init__(self, icp_fitter: Optional["IcpFitter"] = None,
+                 fgr_fitter: Optional["FgrFitter"] = None,
+                 visualise: bool = False,  # Deprecated: use visualize instead
+                 visualize: bool = False, **kwargs) -> None:
         """
         Initialize cascaded fitter.
 
         Args:
             icp_fitter: ICP fitter instance (created if None)
             fgr_fitter: FGR fitter instance (created if None)
-            visualise: Whether to visualize results (British spelling)
-            visualize: Whether to visualize results (American spelling)
+            visualise: Whether to visualize results (deprecated, use visualize)
+            visualize: Whether to visualize results (preferred)
             **kwargs: Additional parameters passed to fitters
         """
         # Import here to avoid circular dependency
@@ -34,8 +40,10 @@ class CascadedFitter:
         self.icp_fitter = icp_fitter or IcpFitter(**kwargs)
         self.fgr_fitter = fgr_fitter or FgrFitter(**kwargs)
 
-        # Support both spellings of visualize
-        self.visualise = visualise or visualize
+        # Support both spellings for backward compatibility, prefer visualize
+        self.visualize = visualize or visualise
+        # Keep old attribute for backward compatibility
+        self.visualise = self.visualize
 
         logger.info("CascadedFitter initialized")
 
@@ -82,7 +90,7 @@ class CascadedFitter:
                 raise
             raise RegistrationError(f"Registration failed: {e}")
 
-    def _read_point_clouds(self, source_file: str, target_file: str):
+    def _read_point_clouds(self, source_file: str, target_file: str) -> None:
         """Read source and target point clouds."""
         logger.debug(f"Reading source: {source_file}")
         self.source_cloud = PointCloudReader.read_point_cloud_file(source_file)
@@ -93,19 +101,19 @@ class CascadedFitter:
         logger.info(f"Loaded {len(self.source_cloud.points)} source and "
                    f"{len(self.target_cloud.points)} target points")
 
-    def _try_icp_fit(self):
+    def _try_icp_fit(self) -> "FitResult":
         """Try ICP fit."""
         logger.debug("Attempting ICP fit")
         result = self.icp_fitter.fit(self.source_cloud, self.target_cloud)
         return result
 
-    def _try_fgr_fit(self):
+    def _try_fgr_fit(self) -> "FitResult":
         """Try FGR fit."""
         logger.debug("Attempting FGR fit")
         result = self.fgr_fitter.fit(self.source_cloud, self.target_cloud)
         return result
 
-    def _print_result(self, fit_result, method_name: str):
+    def _print_result(self, fit_result: "FitResult", method_name: str) -> None:
         """Print registration result."""
         from cascaded_fit.core.transformations import TransformationUtils
 
@@ -121,10 +129,10 @@ class CascadedFitter:
         print(f"<\\Transformation matrix>")
         print(f"\nRMS: {fit_result.inlier_rmse:.50f}")
 
-        if self.visualise:
-            self._visualise_results(fit_result)
+        if self.visualize:
+            self._visualize_results(fit_result)
 
-    def _visualise_results(self, fit_result):
+    def _visualize_results(self, fit_result: "FitResult") -> None:
         """Visualize registration results."""
         logger.debug("Visualizing results")
 
@@ -142,8 +150,14 @@ class CascadedFitter:
         target_temp.paint_uniform_color([0, 0.651, 0.929])
         source_temp.transform(fit_result.transformation)
         o3d.visualization.draw_geometries([source_temp, target_temp])
+        
+    def _visualise_results(self, fit_result: "FitResult") -> None:
+        """Visualize registration results (deprecated, use _visualize_results)."""
+        # Backward compatibility alias
+        return self._visualize_results(fit_result)
 
-    def _create_result_dict(self, fit_result, method: str = "Unknown") -> Dict[str, Any]:
+    def _create_result_dict(self, fit_result: Optional["FitResult"],
+                           method: str = "Unknown") -> Dict[str, Any]:
         """Create result dictionary."""
         if fit_result is None:
             return {

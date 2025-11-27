@@ -1,10 +1,14 @@
 """FGR (Fast Global Registration) fitter."""
 
 import time
+from typing import TYPE_CHECKING, Optional
 import open3d as o3d
 from cascaded_fit.utils.logger import Logger
 from cascaded_fit.utils.config import Config
 from cascaded_fit.utils.exceptions import RegistrationError
+
+if TYPE_CHECKING:
+    from cascaded_fit.fitters.icp_fitter import IcpFitter, FitResult
 
 logger = Logger.get(__name__)
 
@@ -12,14 +16,14 @@ logger = Logger.get(__name__)
 class FgrFitter:
     """FGR-based point cloud fitter with ICP refinement."""
 
-    def __init__(self, rmse_threshold: float = None,
-                 distance_threshold: float = None,
-                 voxel_size: float = None,
-                 icp_fitter=None,
-                 radius_normal_factor: int = None,
-                 radius_feature_factor: int = None,
-                 max_nn_normal: int = None,
-                 max_nn_feature: int = None):
+    def __init__(self, rmse_threshold: Optional[float] = None,
+                 distance_threshold: Optional[float] = None,
+                 voxel_size: Optional[float] = None,
+                 icp_fitter: Optional["IcpFitter"] = None,
+                 radius_normal_factor: Optional[int] = None,
+                 radius_feature_factor: Optional[int] = None,
+                 max_nn_normal: Optional[int] = None,
+                 max_nn_feature: Optional[int] = None) -> None:
         """
         Initialize FGR fitter.
 
@@ -53,7 +57,8 @@ class FgrFitter:
                    f"normal_factor={self.radius_normal_factor}, "
                    f"feature_factor={self.radius_feature_factor}")
 
-    def fit(self, source_cloud, target_cloud):
+    def fit(self, source_cloud: o3d.geometry.PointCloud,
+            target_cloud: o3d.geometry.PointCloud) -> "FitResult":
         """
         Fit source cloud to target cloud using FGR + ICP.
 
@@ -89,7 +94,8 @@ class FgrFitter:
             logger.error(f"FGR+ICP fit failed: {e}", exc_info=True)
             raise RegistrationError(f"FGR+ICP failed: {e}")
 
-    def _execute_fgr(self, source_cloud, target_cloud):
+    def _execute_fgr(self, source_cloud: o3d.geometry.PointCloud,
+                     target_cloud: o3d.geometry.PointCloud) -> o3d.pipelines.registration.RegistrationResult:
         """Execute FGR registration."""
         start_time = time.time()
 
@@ -117,7 +123,7 @@ class FgrFitter:
 
         return result
 
-    def _calculate_fpfh(self, point_cloud):
+    def _calculate_fpfh(self, point_cloud: o3d.geometry.PointCloud) -> o3d.pipelines.registration.Feature:
         """
         Calculate FPFH (Fast Point Feature Histogram) features.
 

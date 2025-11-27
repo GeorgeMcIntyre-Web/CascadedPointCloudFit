@@ -7,6 +7,7 @@ All code duplication has been removed - uses shared modules from cascaded_fit.
 
 from flask import Flask, request, jsonify
 import numpy as np
+import open3d as o3d
 from typing import Dict, Any, Tuple
 
 from cascaded_fit.utils.logger import Logger
@@ -108,10 +109,11 @@ class PointCloudAPI:
                 source, target
             )
 
-            # ICP refinement
-            refined_transform = RegistrationAlgorithms.icp_refinement(
+            # ICP refinement - returns (transform, iterations, error) tuple
+            icp_result = RegistrationAlgorithms.icp_refinement(
                 source, target, initial_transform
             )
+            refined_transform = icp_result[0]  # Extract transform from tuple
 
             # Compute metrics
             metrics = MetricsCalculator.compute_metrics(
@@ -139,8 +141,15 @@ class PointCloudAPI:
         logger.info("Falling back to FGR + ICP pipeline")
 
         try:
+            # Convert numpy arrays to Open3D point clouds for FGR/ICP fitters
+            source_cloud = o3d.geometry.PointCloud()
+            source_cloud.points = o3d.utility.Vector3dVector(source)
+            
+            target_cloud = o3d.geometry.PointCloud()
+            target_cloud.points = o3d.utility.Vector3dVector(target)
+            
             # Try FGR first
-            fgr_result = self.fgr_fitter.fit(source, target)
+            fgr_result = self.fgr_fitter.fit(source_cloud, target_cloud)
 
             if fgr_result.is_success:
                 logger.info("FGR registration succeeded")
@@ -155,7 +164,7 @@ class PointCloudAPI:
                 )
 
             # Try ICP as last resort
-            icp_result = self.icp_fitter.fit(source, target)
+            icp_result = self.icp_fitter.fit(source_cloud, target_cloud)
 
             if icp_result.is_success:
                 logger.info("ICP registration succeeded")
