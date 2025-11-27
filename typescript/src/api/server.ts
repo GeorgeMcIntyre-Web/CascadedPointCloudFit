@@ -15,7 +15,7 @@ const app = express();
 app.use(express.json({ limit: '100mb' })); // Large point clouds
 
 // Health check endpoint
-app.get('/health', (req: Request, res: Response) => {
+app.get('/health', (_req: Request, res: Response) => {
   res.json({
     status: 'healthy',
     service: 'point-cloud-registration-api'
@@ -80,7 +80,7 @@ app.post('/process_point_clouds', async (req: Request, res: Response) => {
     // Determine success
     const isSuccess = metrics.rmse < rmseThreshold;
 
-    res.json({
+    return res.json({
       transformation: icpResult.transform.matrix,
       inlier_rmse: metrics.rmse,
       max_error: metrics.maxError,
@@ -95,7 +95,7 @@ app.post('/process_point_clouds', async (req: Request, res: Response) => {
     });
   } catch (error: any) {
     console.error('Registration error:', error);
-    res.status(500).json({
+    return res.status(500).json({
       error: error.message || 'Internal server error'
     });
   }

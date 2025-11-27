@@ -5,13 +5,11 @@
  */
 
 import { Command } from 'commander';
-import * as path from 'path';
 import { PointCloudReader } from '../io/PointCloudReader';
 import { RegistrationAlgorithms } from '../core/RegistrationAlgorithms';
 import { MetricsCalculator } from '../core/MetricsCalculator';
 import { TransformationUtils } from '../core/TransformationUtils';
 import { Config } from '../utils/Config';
-import { PointCloudHelper } from '../core/PointCloudHelper';
 
 const program = new Command();
 
