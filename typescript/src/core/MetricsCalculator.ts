@@ -6,6 +6,7 @@
 
 import { PointCloud, Transform4x4, Metrics } from './types';
 import { PointCloudHelper } from './PointCloudHelper';
+import { createKDTree } from './KDTreeHelper';
 
 export class MetricsCalculator {
   /**
@@ -24,22 +25,16 @@ export class MetricsCalculator {
     // Transform source points
     const transformedSource = PointCloudHelper.applyTransformation(source, transform);
     const transformedPoints = PointCloudHelper.toPoints(transformedSource);
-    const targetPoints = PointCloudHelper.toPoints(target);
+
+    // Build KD-Tree from target for efficient nearest neighbor search
+    const targetTree = createKDTree(target);
 
     // Find nearest neighbors and compute distances
     const distances: number[] = [];
     
     for (const transformedPoint of transformedPoints) {
-      let minDist = Infinity;
-      
-      for (const targetPoint of targetPoints) {
-        const dist = this.euclideanDistance(transformedPoint, targetPoint);
-        if (dist < minDist) {
-          minDist = dist;
-        }
-      }
-      
-      distances.push(minDist);
+      const nearest = targetTree.nearest(transformedPoint);
+      distances.push(nearest.distance);
     }
 
     // Calculate metrics

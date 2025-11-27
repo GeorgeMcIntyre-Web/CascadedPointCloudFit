@@ -8,6 +8,7 @@ import { Matrix } from 'ml-matrix';
 import { PointCloud, Transform4x4, ICPResult } from './types';
 import { PointCloudHelper } from './PointCloudHelper';
 import { computeSVD3x3 } from './SVDHelper';
+import { createKDTree } from './KDTreeHelper';
 
 export class RegistrationAlgorithms {
   /**
@@ -90,9 +91,8 @@ export class RegistrationAlgorithms {
       throw new Error('Target point cloud must have at least 3 points');
     }
 
-    // Build KD-Tree from target (will be implemented with kd-tree-javascript)
-    // For now, use simple nearest neighbor search
-    const targetPoints = PointCloudHelper.toPoints(target);
+    // Build KD-Tree from target for efficient nearest neighbor search
+    const targetTree = createKDTree(target);
 
     let currentTransform = this.cloneTransform(initialTransform);
     let prevError = Infinity;
@@ -102,24 +102,14 @@ export class RegistrationAlgorithms {
       const transformedSource = PointCloudHelper.applyTransformation(source, currentTransform);
       const transformedPoints = PointCloudHelper.toPoints(transformedSource);
 
-      // Find nearest neighbors (simple implementation - will optimize with KD-Tree)
+      // Find nearest neighbors using KD-Tree (O(log n) instead of O(n))
       const distances: number[] = [];
       const correspondingPoints: Array<{ x: number; y: number; z: number }> = [];
 
       for (const transformedPoint of transformedPoints) {
-        let minDist = Infinity;
-        let nearestPoint = targetPoints[0];
-
-        for (const targetPoint of targetPoints) {
-          const dist = this.euclideanDistance(transformedPoint, targetPoint);
-          if (dist < minDist) {
-            minDist = dist;
-            nearestPoint = targetPoint;
-          }
-        }
-
-        distances.push(minDist);
-        correspondingPoints.push(nearestPoint);
+        const nearest = targetTree.nearest(transformedPoint);
+        distances.push(nearest.distance);
+        correspondingPoints.push(nearest.point);
       }
 
       // Compute error
