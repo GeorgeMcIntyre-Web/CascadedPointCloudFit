@@ -122,9 +122,19 @@ class Config:
 
     @classmethod
     def get_registration_config(cls) -> RegistrationConfig:
-        """Get typed registration configuration."""
+        """Get typed registration configuration.
+        
+        Returns:
+            RegistrationConfig instance
+            
+        Raises:
+            ConfigurationError: If registration section is missing
+        """
         if not cls._config:
             cls.load()
+
+        if 'registration' not in cls._config:
+            raise ConfigurationError("Configuration missing 'registration' section")
 
         reg_cfg = cls._config['registration']
 
