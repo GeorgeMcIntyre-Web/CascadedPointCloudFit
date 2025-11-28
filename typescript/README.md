@@ -5,7 +5,7 @@
 [![NPM Version](https://img.shields.io/npm/v/cascaded-point-cloud-fit-ts.svg)](https://www.npmjs.com/package/cascaded-point-cloud-fit-ts)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.3.3-blue.svg)](https://www.typescriptlang.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Tests](https://img.shields.io/badge/tests-44%20passing-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/tests-82%20passing-brightgreen.svg)]()
 
 ## Quick Links
 
@@ -13,7 +13,8 @@
 - 🏗️ [Architecture Guide](./docs/ARCHITECTURE.md)
 - 🗺️ [Code Map](./docs/CODE_MAP.md)
 - 🔌 [kinetiCORE Integration](./docs/KINETICORE_INTEGRATION.md)
-- ⚡ [Optimization Summary](./OPTIMIZATION_SUMMARY.md)
+- ⚡ [Optimization Summary](./docs/OPTIMIZATION_SUMMARY.md)
+- 🧪 [Test Documentation](./tests/README.md)
 
 ## Features
 
@@ -22,7 +23,7 @@
 ✅ **High Performance** - Handles clouds up to 155K points with adaptive downsampling
 ✅ **RANSAC Support** - Optional outlier rejection for noisy data
 ✅ **Zero Dependencies** - Core algorithms have no external runtime dependencies
-✅ **Well Tested** - 44 passing tests with real-world validation
+✅ **Well Tested** - 82 passing tests with comprehensive E2E and performance validation
 ✅ **Multiple Interfaces** - Use as library, REST API, or CLI
 
 ## Installation
@@ -364,11 +365,20 @@ npm run format           # Prettier
 
 ## Documentation
 
-- **[API Reference](./docs/API_REFERENCE.md)** - Complete API documentation
-- **[Architecture Guide](./docs/ARCHITECTURE.md)** - System design and algorithm flow
-- **[Code Map](./docs/CODE_MAP.md)** - Visual code navigation
-- **[kinetiCORE Integration](./docs/KINETICORE_INTEGRATION.md)** - Integration examples
-- **[Optimization Summary](./OPTIMIZATION_SUMMARY.md)** - Performance optimization details
+### Core Documentation
+- **[API Reference](./docs/API_REFERENCE.md)** - Complete API documentation with examples
+- **[Architecture Guide](./docs/ARCHITECTURE.md)** - System design, algorithm flow, and design decisions
+- **[Code Map](./docs/CODE_MAP.md)** - Visual code navigation and module overview
+
+### Integration & Usage
+- **[kinetiCORE Integration](./docs/KINETICORE_INTEGRATION.md)** - Integration examples and use cases
+- **[Test Documentation](./tests/README.md)** - Test suite guide, running tests, and coverage
+
+### Performance & Optimization
+- **[Optimization Summary](./docs/OPTIMIZATION_SUMMARY.md)** - Detailed performance analysis and optimization strategies
+
+### Historical Documentation
+- **[Archive](./docs/archive/)** - Implementation summaries and historical documentation
 
 ## Examples
 
@@ -382,18 +392,20 @@ See `docs/KINETICORE_INTEGRATION.md` for comprehensive examples including:
 
 ## Testing
 
-44 passing tests with real-world validation:
+82 passing tests with comprehensive validation:
 
-- ✅ Unit tests for all core algorithms
-- ✅ Integration tests with real datasets
-- ✅ REST API endpoint tests
-- ✅ Performance benchmarks
+- ✅ **35 Unit tests** - Core algorithms, RANSAC, KD-tree, metrics, transformations
+- ✅ **13 Integration tests** - Registration pipeline, REST API, real datasets
+- ✅ **9 E2E tests** - Complete workflows, error handling, validation
+- ✅ **14 Performance tests** - Benchmarks at all scales (1K to 150K points)
 
 Test datasets include:
-- UNIT_111 (11K points) - RMSE: 0.000000
-- Clamp (10K points) - RMSE: 0.000000
-- Clouds3 (47K points) - RMSE: 0.000000
-- Slide (155K points) - RMSE: 0.000000
+- **UNIT_111** (11K points) - RMSE: 0.000000, Time: 1.3s
+- **Clamp** (10K points) - RMSE: 0.000000, Time: 2.1s
+- **Clouds3** (47K points) - RMSE: 0.000000, Time: 12.4s
+- **Slide** (155K points) - RMSE: 0.000000, Time: 16.7s
+
+See [Test Documentation](./tests/README.md) for complete testing guide.
 
 ## Requirements
 
