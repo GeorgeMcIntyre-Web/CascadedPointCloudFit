@@ -1,6 +1,6 @@
 /**
- * Core registration algorithms: PCA and ICP.
- * 
+ * Core registration algorithms: PCA, RANSAC, and ICP.
+ *
  * Ported from Python implementation in cascaded_fit/core/registration.py
  */
 
@@ -9,6 +9,7 @@ import { PointCloud, Transform4x4, ICPResult } from './types';
 import { PointCloudHelper } from './PointCloudHelper';
 import { computeSVD3x3 } from './SVDHelper';
 import { createKDTree } from './KDTreeHelper';
+import { RANSACHelper, RANSACOptions } from './RANSACHelper';
 
 export class RegistrationAlgorithms {
   /**
@@ -80,15 +81,17 @@ export class RegistrationAlgorithms {
   }
 
   /**
-   * ICP refinement.
-   * 
+   * ICP refinement with optional RANSAC preprocessing.
+   *
    * Ported from Python: RegistrationAlgorithms.icp_refinement()
-   * 
+   *
    * @param source Source point cloud
    * @param target Target point cloud
    * @param initialTransform Initial 4x4 transformation matrix
    * @param maxIterations Maximum iterations
    * @param tolerance Convergence tolerance
+   * @param useRANSAC Enable RANSAC outlier rejection (default: false)
+   * @param ransacOptions RANSAC parameters (optional)
    * @returns ICP result with final transform, iterations, and error
    */
   static icpRefinement(
@@ -96,17 +99,10 @@ export class RegistrationAlgorithms {
     target: PointCloud,
     initialTransform: Transform4x4,
     maxIterations: number = 50,
-    tolerance: number = 1e-7
+    tolerance: number = 1e-7,
+    useRANSAC: boolean = false,
+    ransacOptions?: RANSACOptions
   ): ICPResult {
-    // For very large point clouds, use adaptive downsampling
-    // Use lighter downsampling since KD-tree is now more efficient
-    const useDownsampling = source.count > 30000;
-    let downsampleFactor = useDownsampling ? Math.ceil(source.count / 15000) : 1;
-
-    // For extremely large clouds, use moderate downsampling
-    if (source.count > 100000) {
-      downsampleFactor = Math.ceil(source.count / 30000); // Downsample to ~30k points
-    }
     // Validate inputs
     if (source.count < 3) {
       throw new Error('Source point cloud must have at least 3 points');
@@ -115,47 +111,93 @@ export class RegistrationAlgorithms {
       throw new Error('Target point cloud must have at least 3 points');
     }
 
+    // Optional RANSAC preprocessing for outlier rejection
+    let currentTransform = this.cloneTransform(initialTransform);
+    let workingSource = source;
+
+    if (useRANSAC) {
+      const ransacResult = RANSACHelper.ransacRegistration(source, target, initialTransform, ransacOptions);
+
+      // Use RANSAC-refined transform as starting point
+      currentTransform = ransacResult.transform;
+
+      // If RANSAC found good inliers, use only those points for ICP (faster and more robust)
+      if (ransacResult.inlierRatio > 0.5 && ransacResult.inlierCount >= 100) {
+        const inlierPoints = new Float32Array(ransacResult.inlierCount * 3);
+        let writeIdx = 0;
+        for (const idx of ransacResult.inlierIndices) {
+          inlierPoints[writeIdx++] = source.points[idx * 3];
+          inlierPoints[writeIdx++] = source.points[idx * 3 + 1];
+          inlierPoints[writeIdx++] = source.points[idx * 3 + 2];
+        }
+        workingSource = { points: inlierPoints, count: ransacResult.inlierCount };
+      }
+    }
+
     // Build KD-Tree from target for efficient nearest neighbor search
     const targetTree = createKDTree(target);
-
-    let currentTransform = this.cloneTransform(initialTransform);
     let prevError = Infinity;
 
-    // For large clouds, do initial iterations with downsampling
-    const refineIteration = useDownsampling ? Math.max(2, Math.floor(maxIterations * 0.7)) : maxIterations;
+    // Pre-allocate buffers to reduce GC pressure (reuse across iterations)
+    const transformedPoints = new Float32Array(workingSource.count * 3);
+    const correspondingPoints = new Float32Array(workingSource.count * 3);
 
     for (let iteration = 0; iteration < maxIterations; iteration++) {
-      // Use downsampled points for initial iterations on large clouds
-      const useDownsampled = useDownsampling && iteration < refineIteration;
-      const effectiveSource = useDownsampled ? this.downsample(source, downsampleFactor) : source;
-      
-      // Transform source points
-      const transformedSource = PointCloudHelper.applyTransformation(effectiveSource, currentTransform);
-      
-      // Find nearest neighbors using KD-Tree
-      const correspondingPoints = new Float32Array(transformedSource.count * 3);
-      let totalDistanceSq = 0;
+      // Adaptive downsampling: start coarse, progressively refine
+      // This reduces total queries while maintaining accuracy
+      // Strategy: Keep most iterations downsampled, only use full resolution near convergence
+      let effectiveSource = workingSource;
 
-      const sourcePoints = transformedSource.points;
-      const count = transformedSource.count;
+      if (workingSource.count > 100000) {
+        // Very large clouds: Keep ALL iterations downsampled for speed
+        // Iteration 0-1: 20k points (coarse - fast convergence)
+        // Iteration 2+: 40k points (refined - good balance of speed/accuracy)
+        // Never use full 155k points - converges well at 40k with much less time
+        if (iteration < 2) {
+          const factor = Math.ceil(workingSource.count / 20000);
+          effectiveSource = this.downsample(workingSource, factor);
+        } else {
+          const factor = Math.ceil(workingSource.count / 40000);
+          effectiveSource = this.downsample(workingSource, factor);
+        }
+      } else if (workingSource.count > 30000) {
+        // Large clouds: 2-stage progressive refinement
+        // Iteration 0: 15k points (coarse)
+        // Iteration 1+: 25k points (refined but still downsampled)
+        if (iteration < 1) {
+          const factor = Math.ceil(workingSource.count / 15000);
+          effectiveSource = this.downsample(workingSource, factor);
+        } else {
+          const factor = Math.ceil(workingSource.count / 25000);
+          effectiveSource = this.downsample(workingSource, factor);
+        }
+      }
+      // Small clouds (<30k): always use full resolution
+
+      // Transform source points in-place to avoid allocation
+      const count = effectiveSource.count;
+      this.applyTransformationInPlace(effectiveSource, currentTransform, transformedPoints, count);
+
+      // Find nearest neighbors using KD-Tree
+      let totalDistanceSq = 0;
       
       for (let i = 0; i < count; i++) {
         const idx = i * 3;
-        const x = sourcePoints[idx];
-        const y = sourcePoints[idx + 1];
-        const z = sourcePoints[idx + 2];
-        
+        const x = transformedPoints[idx];
+        const y = transformedPoints[idx + 1];
+        const z = transformedPoints[idx + 2];
+
         const nearest = targetTree.nearestRaw(x, y, z);
         const np = nearest.point;
         correspondingPoints[idx] = np.x;
         correspondingPoints[idx + 1] = np.y;
         correspondingPoints[idx + 2] = np.z;
-        
+
         totalDistanceSq += nearest.distance * nearest.distance;
       }
 
       // Compute mean error (RMSE)
-      const error = Math.sqrt(totalDistanceSq / transformedSource.count);
+      const error = Math.sqrt(totalDistanceSq / count);
 
       // Early termination if error is already very low (avoid unnecessary iterations)
       if (error < tolerance * 10) {
@@ -178,13 +220,15 @@ export class RegistrationAlgorithms {
       prevError = error;
 
       // Compute incremental transformation via SVD
-      const sourceMean = PointCloudHelper.computeCentroid(transformedSource);
-      const targetCloud: PointCloud = { points: correspondingPoints, count: transformedSource.count };
+      const transformedSourceCloud: PointCloud = { points: transformedPoints, count };
+      const targetCloud: PointCloud = { points: correspondingPoints, count };
+
+      const sourceMean = PointCloudHelper.computeCentroid(transformedSourceCloud);
       const targetMean = PointCloudHelper.computeCentroid(targetCloud);
-      
+
       // Compute cross-covariance directly from Float32Arrays (avoid Point3D conversions)
       const cov = this.computeCrossCovarianceFast(
-        transformedSource,
+        transformedSourceCloud,
         sourceMean,
         targetCloud,
         targetMean
@@ -318,6 +362,36 @@ export class RegistrationAlgorithms {
     return {
       matrix: transform.matrix.map(row => [...row])
     };
+  }
+
+  /**
+   * Apply transformation to point cloud in-place (write to output buffer).
+   * Avoids allocating new Float32Array on each iteration.
+   */
+  private static applyTransformationInPlace(
+    cloud: PointCloud,
+    transform: Transform4x4,
+    output: Float32Array,
+    count: number
+  ): void {
+    const m = transform.matrix;
+    const points = cloud.points;
+
+    // Extract matrix elements for faster access
+    const m00 = m[0][0], m01 = m[0][1], m02 = m[0][2], m03 = m[0][3];
+    const m10 = m[1][0], m11 = m[1][1], m12 = m[1][2], m13 = m[1][3];
+    const m20 = m[2][0], m21 = m[2][1], m22 = m[2][2], m23 = m[2][3];
+
+    for (let i = 0; i < count; i++) {
+      const idx = i * 3;
+      const x = points[idx];
+      const y = points[idx + 1];
+      const z = points[idx + 2];
+
+      output[idx] = m00 * x + m01 * y + m02 * z + m03;
+      output[idx + 1] = m10 * x + m11 * y + m12 * z + m13;
+      output[idx + 2] = m20 * x + m21 * y + m22 * z + m23;
+    }
   }
 
   private static multiply3x3Matrices(A: number[][], B: number[][]): number[][] {
