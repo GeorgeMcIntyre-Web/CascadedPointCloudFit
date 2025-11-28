@@ -13,12 +13,14 @@
 - 🏗️ [Architecture Guide](./docs/ARCHITECTURE.md)
 - 🗺️ [Code Map](./docs/CODE_MAP.md)
 - 🔌 [kinetiCORE Integration](./docs/KINETICORE_INTEGRATION.md)
+- ⚡ [Optimization Summary](./OPTIMIZATION_SUMMARY.md)
 
 ## Features
 
 ✅ **High Accuracy** - Achieves RMSE = 0.000000 on test datasets
 ✅ **Type Safe** - 100% TypeScript with strict mode enabled
-✅ **High Performance** - Handles clouds up to 155K points
+✅ **High Performance** - Handles clouds up to 155K points with adaptive downsampling
+✅ **RANSAC Support** - Optional outlier rejection for noisy data
 ✅ **Zero Dependencies** - Core algorithms have no external runtime dependencies
 ✅ **Well Tested** - 44 passing tests with real-world validation
 ✅ **Multiple Interfaces** - Use as library, REST API, or CLI
@@ -137,6 +139,29 @@ const result = RegistrationAlgorithms.register(sensorCloud, referenceModel);
 console.log('Sensor pose:', result.transform.matrix);
 ```
 
+### 4. RANSAC for Noisy Data
+
+```typescript
+import { RegistrationAlgorithms } from 'cascaded-point-cloud-fit-ts';
+
+// Standard ICP (fast, clean data)
+const result = RegistrationAlgorithms.icpRefinement(
+  source,
+  target,
+  initialTransform,
+  200,  // maxIterations
+  1e-6  // tolerance
+);
+
+// With RANSAC (robust, noisy data with outliers)
+const robustResult = RegistrationAlgorithms.icpRefinement(
+  source, target, initialTransform,
+  200, 1e-6,
+  true, // Enable RANSAC
+  { maxIterations: 50, inlierThreshold: 0.02 }
+);
+```
+
 ## API Overview
 
 ### Core Classes
@@ -166,7 +191,9 @@ static icpRefinement(
   target: PointCloud,
   initialTransform: Transform4x4,
   maxIterations?: number,
-  tolerance?: number
+  tolerance?: number,
+  useRANSAC?: boolean,
+  ransacOptions?: RANSACOptions
 ): ICPResult
 
 // Downsample point cloud
@@ -258,19 +285,24 @@ x,y,z
 
 ## Performance
 
-| Points | Method | Time | Notes |
-|--------|--------|------|-------|
-| < 10K | Standard ICP | <1s | Optimal |
-| 10K-30K | Standard ICP | 1-3s | Good |
-| 30K-60K | ICP + downsample | 3-6s | Adaptive |
-| 60K-100K | SpatialGrid | 6-12s | Approximate |
-| 100K+ | SpatialGrid + downsample | 12-20s | Heavy downsampling |
+Optimized for large point clouds with adaptive downsampling:
 
-**Optimizations**:
-- Automatic KD-tree vs SpatialGrid selection (threshold: 60K points)
-- Adaptive downsampling for large clouds
-- Iterative KD-tree construction (prevents stack overflow)
-- Integer-based spatial grid keys (60% faster than string keys)
+| Dataset | Points | Time | RMSE | Status |
+|---------|--------|------|------|--------|
+| Clamp | 10k | 2.1s | 0.000000 | ✅ Perfect |
+| UNIT_111 | 11k | 1.2s | 0.000000 | ✅ Perfect |
+| Clouds3 | 47k | 12.4s | 0.000000 | ✅ Perfect |
+| Slide | 155k | **16.7s** | 0.000000 | ✅ Perfect |
+
+**Key Optimizations:**
+- **Adaptive downsampling** (19% faster on large clouds)
+- **Memory pre-allocation** (reduced GC pressure)
+- **Custom KD-tree** (2.8-6.4x faster than libraries)
+- **Optional RANSAC** for outlier rejection
+- **Automatic algorithm selection** (KD-tree vs SpatialGrid at 60K points)
+- **Integer-based spatial grid keys** (60% faster than string keys)
+
+See [OPTIMIZATION_SUMMARY.md](OPTIMIZATION_SUMMARY.md) for detailed analysis.
 
 ## Algorithm Details
 
@@ -300,6 +332,11 @@ x,y,z
 **Time Complexity**: O(k * n log n) for k iterations (KD-tree) or O(k * n) (SpatialGrid)
 
 **Convergence**: Typically 3-10 iterations, stops when RMSE change < tolerance (default: 1e-7)
+
+**Adaptive Strategy** (for clouds >100k points):
+- Iterations 0-1: 20k points (coarse alignment)
+- Iterations 2+: 40k points (refined alignment)
+- Reduces queries by 83% while maintaining perfect accuracy
 
 ## Development
 
@@ -331,6 +368,7 @@ npm run format           # Prettier
 - **[Architecture Guide](./docs/ARCHITECTURE.md)** - System design and algorithm flow
 - **[Code Map](./docs/CODE_MAP.md)** - Visual code navigation
 - **[kinetiCORE Integration](./docs/KINETICORE_INTEGRATION.md)** - Integration examples
+- **[Optimization Summary](./OPTIMIZATION_SUMMARY.md)** - Performance optimization details
 
 ## Examples
 
@@ -353,8 +391,8 @@ See `docs/KINETICORE_INTEGRATION.md` for comprehensive examples including:
 
 Test datasets include:
 - UNIT_111 (11K points) - RMSE: 0.000000
-- Clamp (12K points) - RMSE: 0.000000
-- Clouds3 (54K points) - RMSE: 0.000000
+- Clamp (10K points) - RMSE: 0.000000
+- Clouds3 (47K points) - RMSE: 0.000000
 - Slide (155K points) - RMSE: 0.000000
 
 ## Requirements
@@ -381,4 +419,4 @@ For issues, questions, or feature requests, please open an issue on GitHub.
 ---
 
 **Version**: 0.1.0
-**Last Updated**: 2025-11-27
+**Last Updated**: 2025-11-28
