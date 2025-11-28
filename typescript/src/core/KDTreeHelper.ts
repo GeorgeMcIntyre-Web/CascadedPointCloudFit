@@ -38,6 +38,11 @@ export class KDTree3D implements NearestNeighborSearch {
       throw new Error('KD-Tree is empty');
     }
 
+    // Validate query point
+    if (!isFinite(x) || !isFinite(y) || !isFinite(z)) {
+      throw new Error(`Invalid query point: (${x}, ${y}, ${z})`);
+    }
+
     let bestPoint: Point3D | null = null;
     let bestDistSq = Infinity;
 

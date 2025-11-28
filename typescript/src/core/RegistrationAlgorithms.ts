@@ -64,7 +64,7 @@ export class RegistrationAlgorithms {
     const V = svdResult.V;
     
     // Rotation: R = V * U^T
-    const R = V.mmul(U.transpose());
+    let R = V.mmul(U.transpose());
 
     // Ensure right-handed coordinate system (det(R) = 1)
     const det = this.determinant3x3(R.to2DArray());
@@ -73,11 +73,54 @@ export class RegistrationAlgorithms {
       const V_flipped = V.clone();
       const col2 = V_flipped.getColumn(2);
       V_flipped.setColumn(2, col2.map((v: number) => -v));
-      const R_corrected = V_flipped.mmul(U.transpose());
-      return this.buildTransformMatrix(R_corrected, sourceCentroid, targetCentroid);
+      R = V_flipped.mmul(U.transpose());
     }
 
-    return this.buildTransformMatrix(R, sourceCentroid, targetCentroid);
+    // Validate rotation matrix - all values should be in [-1, 1] for a valid rotation
+    const R_array = R.to2DArray();
+    let isValidRotation = true;
+    for (let i = 0; i < 3; i++) {
+      for (let j = 0; j < 3; j++) {
+        if (Math.abs(R_array[i][j]) > 2.0) {  // Allow small tolerance beyond 1.0
+          isValidRotation = false;
+          break;
+        }
+      }
+      if (!isValidRotation) break;
+    }
+
+    // If PCA produced an invalid rotation, fall back to identity rotation (centroid-only alignment)
+    if (!isValidRotation) {
+      console.warn('PCA produced unreasonable rotation matrix - falling back to centroid-only alignment');
+      const identityR = new Matrix([[1, 0, 0], [0, 1, 0], [0, 0, 1]]);
+      return this.buildTransformMatrix(identityR, sourceCentroid, targetCentroid);
+    }
+
+    // Build transform and validate translation is reasonable
+    const transform = this.buildTransformMatrix(R, sourceCentroid, targetCentroid);
+
+    // Check if translation is reasonable (should be similar scale to point cloud bounds)
+    const sourceBounds = this.computePointCloudBounds(source);
+    const maxDimension = Math.max(
+      sourceBounds.maxX - sourceBounds.minX,
+      sourceBounds.maxY - sourceBounds.minY,
+      sourceBounds.maxZ - sourceBounds.minZ
+    );
+
+    const translationMagnitude = Math.sqrt(
+      transform.matrix[0][3] ** 2 +
+      transform.matrix[1][3] ** 2 +
+      transform.matrix[2][3] ** 2
+    );
+
+    // If translation is more than 1000x the point cloud size, it's likely wrong
+    if (translationMagnitude > maxDimension * 1000) {
+      console.warn('PCA produced unreasonable translation - falling back to centroid-only alignment');
+      const identityR = new Matrix([[1, 0, 0], [0, 1, 0], [0, 0, 1]]);
+      return this.buildTransformMatrix(identityR, sourceCentroid, targetCentroid);
+    }
+
+    return transform;
   }
 
   /**
@@ -216,7 +259,7 @@ export class RegistrationAlgorithms {
 
       // Find nearest neighbors using KD-Tree
       let totalDistanceSq = 0;
-      
+
       for (let i = 0; i < count; i++) {
         const idx = i * 3;
         const x = transformedPoints[idx];
@@ -286,6 +329,24 @@ export class RegistrationAlgorithms {
 
       // Compute translation
       const R_array = R.to2DArray();
+
+      // Check for divergence: rotation matrix should have values in reasonable range
+      let maxRotationValue = 0;
+      for (let i = 0; i < 3; i++) {
+        for (let j = 0; j < 3; j++) {
+          maxRotationValue = Math.max(maxRotationValue, Math.abs(R_array[i][j]));
+        }
+      }
+
+      // If rotation values are too large, ICP is diverging - stop and return current transform
+      if (maxRotationValue > 10.0 || !isFinite(maxRotationValue)) {
+        console.warn(`ICP diverging at iteration ${iteration + 1} (max rotation value: ${maxRotationValue}) - returning current transform`);
+        return {
+          transform: currentTransform,
+          iterations: iteration + 1,
+          error: prevError
+        };
+      }
       const t = {
         x: targetMean.x - (R_array[0][0] * sourceMean.x + R_array[0][1] * sourceMean.y + R_array[0][2] * sourceMean.z),
         y: targetMean.y - (R_array[1][0] * sourceMean.x + R_array[1][1] * sourceMean.y + R_array[1][2] * sourceMean.z),
@@ -344,6 +405,32 @@ export class RegistrationAlgorithms {
     }
     
     return { points: downsampled, count: newCount };
+  }
+
+  private static computePointCloudBounds(cloud: PointCloud): {
+    minX: number; maxX: number;
+    minY: number; maxY: number;
+    minZ: number; maxZ: number;
+  } {
+    let minX = Infinity, maxX = -Infinity;
+    let minY = Infinity, maxY = -Infinity;
+    let minZ = Infinity, maxZ = -Infinity;
+
+    for (let i = 0; i < cloud.count; i++) {
+      const idx = i * 3;
+      const x = cloud.points[idx];
+      const y = cloud.points[idx + 1];
+      const z = cloud.points[idx + 2];
+
+      if (x < minX) minX = x;
+      if (x > maxX) maxX = x;
+      if (y < minY) minY = y;
+      if (y > maxY) maxY = y;
+      if (z < minZ) minZ = z;
+      if (z > maxZ) maxZ = z;
+    }
+
+    return { minX, maxX, minY, maxY, minZ, maxZ };
   }
 
   private static centerPointCloud(cloud: PointCloud, centroid: { x: number; y: number; z: number }): PointCloud {
@@ -417,6 +504,13 @@ export class RegistrationAlgorithms {
     const m00 = m[0][0], m01 = m[0][1], m02 = m[0][2], m03 = m[0][3];
     const m10 = m[1][0], m11 = m[1][1], m12 = m[1][2], m13 = m[1][3];
     const m20 = m[2][0], m21 = m[2][1], m22 = m[2][2], m23 = m[2][3];
+
+    // Validate transform matrix
+    if (!isFinite(m00) || !isFinite(m01) || !isFinite(m02) || !isFinite(m03) ||
+        !isFinite(m10) || !isFinite(m11) || !isFinite(m12) || !isFinite(m13) ||
+        !isFinite(m20) || !isFinite(m21) || !isFinite(m22) || !isFinite(m23)) {
+      throw new Error('Transform matrix contains invalid values (NaN or Infinity)');
+    }
 
     for (let i = 0; i < count; i++) {
       const idx = i * 3;

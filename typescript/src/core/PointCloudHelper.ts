@@ -98,17 +98,26 @@ export class PointCloudHelper {
     target: PointCloud
   ): [PointCloud, PointCloud] {
     const minSize = Math.min(source.count, target.count);
-    
+
+    // Create proper copies instead of using slice which might cause issues
+    const alignedSourcePoints = new Float32Array(minSize * 3);
+    const alignedTargetPoints = new Float32Array(minSize * 3);
+
+    for (let i = 0; i < minSize * 3; i++) {
+      alignedSourcePoints[i] = source.points[i];
+      alignedTargetPoints[i] = target.points[i];
+    }
+
     const alignedSource = {
-      points: source.points.slice(0, minSize * 3),
+      points: alignedSourcePoints,
       count: minSize
     };
-    
+
     const alignedTarget = {
-      points: target.points.slice(0, minSize * 3),
+      points: alignedTargetPoints,
       count: minSize
     };
-    
+
     return [alignedSource, alignedTarget];
   }
 
