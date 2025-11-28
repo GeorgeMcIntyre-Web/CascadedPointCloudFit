@@ -81,6 +81,42 @@ export class RegistrationAlgorithms {
   }
 
   /**
+   * Complete registration pipeline: PCA + ICP.
+   *
+   * Convenience method that runs PCA for initial alignment followed by ICP refinement.
+   *
+   * @param source Source point cloud
+   * @param target Target point cloud
+   * @param maxIterations Maximum ICP iterations (default: 50)
+   * @param tolerance Convergence tolerance (default: 1e-7)
+   * @param useRANSAC Enable RANSAC outlier rejection (default: false)
+   * @param ransacOptions RANSAC parameters (optional)
+   * @returns ICP result with final transform, iterations, and error
+   */
+  static register(
+    source: PointCloud,
+    target: PointCloud,
+    maxIterations: number = 50,
+    tolerance: number = 1e-7,
+    useRANSAC: boolean = false,
+    ransacOptions?: RANSACOptions
+  ): ICPResult {
+    // Step 1: PCA for initial alignment
+    const initialTransform = this.pcaRegistration(source, target);
+
+    // Step 2: ICP refinement
+    return this.icpRefinement(
+      source,
+      target,
+      initialTransform,
+      maxIterations,
+      tolerance,
+      useRANSAC,
+      ransacOptions
+    );
+  }
+
+  /**
    * ICP refinement with optional RANSAC preprocessing.
    *
    * Ported from Python: RegistrationAlgorithms.icp_refinement()
