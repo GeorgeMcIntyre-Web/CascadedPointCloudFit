@@ -220,6 +220,16 @@ npx vitest run tests/performance/
 # - ICP 10K points:    ~117ms
 # - Full pipeline 10K: ~48ms
 # - UNIT_111 (11K):    ~1.3s
+
+# Run comprehensive dataset validation
+npm run test:all-datasets
+
+# Validates 10 datasets including:
+# - UNIT_111 (11K points)     ~1.7s
+# - Slide (155K points)       ~13.4s  ⭐ Large dataset
+# - Clouds3 (47K points)      ~15.5s
+# - Challenging cases (IcpFails, Fails4, etc.)
+# Results: 9/10 passing (90% success rate)
 ```
 
 ---

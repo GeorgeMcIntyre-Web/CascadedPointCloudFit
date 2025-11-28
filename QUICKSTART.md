@@ -140,6 +140,9 @@ python -m cascaded_fit.api.app
 # Run tests with coverage
 npm run test:coverage
 
+# Validate all datasets (10 datasets, 9/10 passing)
+npm run test:all-datasets
+
 # Lint code
 npm run lint
 

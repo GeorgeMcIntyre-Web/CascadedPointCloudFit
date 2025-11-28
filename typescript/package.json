@@ -29,6 +29,7 @@
     "start": "node dist/api/server.js",
     "prepublishOnly": "npm run build && npm test",
     "validate:external": "tsx scripts/validateExternalData.ts",
+    "test:all-datasets": "tsx scripts/testAllDatasets.ts",
     "clean": "rimraf dist",
     "rebuild": "npm run clean && npm run build"
   },
