@@ -221,6 +221,10 @@ export class RegistrationAlgorithms {
     const transformedPoints = new Float32Array(workingSource.count * 3);
     const correspondingPoints = new Float32Array(workingSource.count * 3);
 
+    // Track error history for early stopping detection
+    const errorHistory: number[] = [];
+    const ERROR_WINDOW_SIZE = 10;
+
     for (let iteration = 0; iteration < maxIterations; iteration++) {
       // Adaptive downsampling: start coarse, progressively refine
       // This reduces total queries while maintaining accuracy
@@ -258,6 +262,8 @@ export class RegistrationAlgorithms {
       this.applyTransformationInPlace(effectiveSource, currentTransform, transformedPoints, count);
 
       // Find nearest neighbors using KD-Tree
+      // Store distances for robust filtering
+      const distances: number[] = new Array(count);
       let totalDistanceSq = 0;
 
       for (let i = 0; i < count; i++) {
@@ -272,11 +278,41 @@ export class RegistrationAlgorithms {
         correspondingPoints[idx + 1] = np.y;
         correspondingPoints[idx + 2] = np.z;
 
+        distances[i] = nearest.distance;
         totalDistanceSq += nearest.distance * nearest.distance;
       }
 
-      // Compute mean error (RMSE)
+      // Compute mean error (RMSE) before filtering
       const error = Math.sqrt(totalDistanceSq / count);
+
+      // ROBUST CORRESPONDENCE FILTERING
+      // Reject outlier correspondences that are too far (> 3x median distance)
+      // This is critical for datasets with partial overlap or missing geometry
+      const sortedDistances = [...distances].sort((a, b) => a - b);
+      const medianDistance = sortedDistances[Math.floor(count / 2)];
+      const outlierThreshold = medianDistance * 3.0;
+
+      // Mark outliers and recompute correspondences without them
+      let inlierCount = 0;
+      let inlierDistanceSq = 0;
+      const inlierMask = new Array(count).fill(false);
+
+      for (let i = 0; i < count; i++) {
+        if (distances[i] <= outlierThreshold) {
+          inlierMask[i] = true;
+          inlierCount++;
+          inlierDistanceSq += distances[i] * distances[i];
+        }
+      }
+
+      // Use robust error (inliers only) if we filtered out outliers
+      const robustError = inlierCount > 0 ? Math.sqrt(inlierDistanceSq / inlierCount) : error;
+      const outlierRatio = 1.0 - (inlierCount / count);
+
+      // Log outlier filtering (only when significant filtering occurs)
+      if (outlierRatio > 0.1 && iteration % 20 === 0) {
+        console.log(`[ICP Iter ${iteration + 1}] Filtered ${(outlierRatio * 100).toFixed(1)}% outliers (median dist: ${medianDistance.toFixed(2)}mm, threshold: ${outlierThreshold.toFixed(2)}mm)`);
+      }
 
       // Early termination if error is already very low (avoid unnecessary iterations)
       if (error < tolerance * 10) {
@@ -296,11 +332,80 @@ export class RegistrationAlgorithms {
         };
       }
 
+      // EARLY STOPPING: Detect when ICP is stuck (no meaningful progress)
+      errorHistory.push(robustError);
+      if (errorHistory.length > ERROR_WINDOW_SIZE) {
+        errorHistory.shift(); // Keep only last N errors
+      }
+
+      // Check if we're making progress over the last N iterations
+      if (errorHistory.length === ERROR_WINDOW_SIZE && iteration >= ERROR_WINDOW_SIZE) {
+        const avgChange = errorHistory.reduce((sum, err, i) => {
+          if (i === 0) return sum;
+          return sum + Math.abs(err - errorHistory[i - 1]);
+        }, 0) / (ERROR_WINDOW_SIZE - 1);
+
+        const isStuck = avgChange < 0.01; // Less than 0.01mm change per iteration
+        const currentError = robustError;
+
+        if (isStuck) {
+          // No meaningful progress - decide if we should stop
+          if (currentError < 1.0) {
+            // Good enough for low-overlap cases
+            console.log(`[ICP Iter ${iteration + 1}] Early stop: converged to ${currentError.toFixed(4)}mm (avg change: ${avgChange.toFixed(6)}mm)`);
+            return {
+              transform: currentTransform,
+              iterations: iteration + 1,
+              error: currentError
+            };
+          } else if (iteration > 50) {
+            // Stuck at high error - unlikely to improve
+            console.warn(`[ICP Iter ${iteration + 1}] Early stop: stuck at ${currentError.toFixed(4)}mm (avg change: ${avgChange.toFixed(6)}mm)`);
+            return {
+              transform: currentTransform,
+              iterations: iteration + 1,
+              error: currentError
+            };
+          }
+        }
+      }
+
       prevError = error;
 
       // Compute incremental transformation via SVD
-      const transformedSourceCloud: PointCloud = { points: transformedPoints, count };
-      const targetCloud: PointCloud = { points: correspondingPoints, count };
+      // IMPORTANT: Use only INLIER correspondences (outliers filtered out)
+      // This prevents bad matches from corrupting the transformation estimate
+      let transformedSourceCloud: PointCloud;
+      let targetCloud: PointCloud;
+
+      if (inlierCount < count) {
+        // Filter to use only inliers for SVD
+        const inlierTransformed = new Float32Array(inlierCount * 3);
+        const inlierTarget = new Float32Array(inlierCount * 3);
+        let writeIdx = 0;
+
+        for (let i = 0; i < count; i++) {
+          if (inlierMask[i]) {
+            const idx = i * 3;
+            inlierTransformed[writeIdx] = transformedPoints[idx];
+            inlierTransformed[writeIdx + 1] = transformedPoints[idx + 1];
+            inlierTransformed[writeIdx + 2] = transformedPoints[idx + 2];
+
+            inlierTarget[writeIdx] = correspondingPoints[idx];
+            inlierTarget[writeIdx + 1] = correspondingPoints[idx + 1];
+            inlierTarget[writeIdx + 2] = correspondingPoints[idx + 2];
+
+            writeIdx += 3;
+          }
+        }
+
+        transformedSourceCloud = { points: inlierTransformed, count: inlierCount };
+        targetCloud = { points: inlierTarget, count: inlierCount };
+      } else {
+        // No outliers filtered, use all correspondences
+        transformedSourceCloud = { points: transformedPoints, count };
+        targetCloud = { points: correspondingPoints, count };
+      }
 
       const sourceMean = PointCloudHelper.computeCentroid(transformedSourceCloud);
       const targetMean = PointCloudHelper.computeCentroid(targetCloud);
@@ -330,23 +435,27 @@ export class RegistrationAlgorithms {
       // Compute translation
       const R_array = R.to2DArray();
 
-      // Check for divergence: rotation matrix should have values in reasonable range
-      let maxRotationValue = 0;
+      // Check for NaN/Infinity (numerical instability)
+      let hasInvalidValues = false;
       for (let i = 0; i < 3; i++) {
         for (let j = 0; j < 3; j++) {
-          maxRotationValue = Math.max(maxRotationValue, Math.abs(R_array[i][j]));
+          if (!isFinite(R_array[i][j])) {
+            hasInvalidValues = true;
+            break;
+          }
         }
+        if (hasInvalidValues) break;
       }
 
-      // If rotation values are too large, ICP is diverging - stop and return current transform
-      if (maxRotationValue > 10.0 || !isFinite(maxRotationValue)) {
-        console.warn(`ICP diverging at iteration ${iteration + 1} (max rotation value: ${maxRotationValue}) - returning current transform`);
+      if (hasInvalidValues) {
+        console.warn(`ICP numerical instability at iteration ${iteration + 1} - returning current transform`);
         return {
           transform: currentTransform,
           iterations: iteration + 1,
           error: prevError
         };
       }
+
       const t = {
         x: targetMean.x - (R_array[0][0] * sourceMean.x + R_array[0][1] * sourceMean.y + R_array[0][2] * sourceMean.z),
         y: targetMean.y - (R_array[1][0] * sourceMean.x + R_array[1][1] * sourceMean.y + R_array[1][2] * sourceMean.z),
