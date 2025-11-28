@@ -59,6 +59,28 @@ export class RANSACHelper {
     // Build KD-tree for target
     const targetTree = createKDTree(target);
 
+    // Detect if initial alignment is poor by checking a sample of correspondences
+    // This helps RANSAC work even when PCA fails and falls back to identity
+    const qualityCheckSamples = Math.min(100, source.count);
+    let totalDistance = 0;
+    let validSamples = 0;
+    for (let i = 0; i < qualityCheckSamples; i++) {
+      const idx = Math.floor((i * source.count) / qualityCheckSamples);
+      const x = transformedSource.points[idx * 3];
+      const y = transformedSource.points[idx * 3 + 1];
+      const z = transformedSource.points[idx * 3 + 2];
+      const nearest = targetTree.nearestRaw(x, y, z);
+      totalDistance += nearest.distance;
+      validSamples++;
+    }
+    const avgDistance = validSamples > 0 ? totalDistance / validSamples : Infinity;
+    
+    // If average distance is large, initial alignment is poor - use larger threshold
+    // For partial overlap cases (like PinFails2), we need to be more lenient
+    const correspondenceThreshold = avgDistance > inlierThreshold * 10 
+      ? Math.max(avgDistance * 2, inlierThreshold * 50) // Much larger threshold for poor alignment
+      : inlierThreshold * 5; // Normal threshold for good alignment
+
     let bestTransform = this.identityTransform();
     let bestInliers: number[] = [];
     let bestInlierCount = 0;
@@ -79,8 +101,9 @@ export class RANSACHelper {
 
         const nearest = targetTree.nearestRaw(x, y, z);
 
-        // Only use correspondence if distance is reasonable
-        if (nearest.distance < inlierThreshold * 5) {
+        // Use adaptive threshold based on initial alignment quality
+        // For poor initial alignment (like when PCA fails), use much larger threshold
+        if (nearest.distance < correspondenceThreshold) {
           sourcePoints.push({ x, y, z });
           targetPoints.push(nearest.point);
         }

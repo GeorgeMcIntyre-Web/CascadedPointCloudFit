@@ -143,21 +143,50 @@ async function debugPinFails2() {
       row.map(v => v.toFixed(4)).join('  ')
     ).join('\n'));
 
-    // Try ICP
-    console.log('\n🔄 Attempting ICP refinement...');
+    // Try ICP without RANSAC
+    console.log('\n🔄 Attempting ICP refinement (without RANSAC)...');
     try {
       const result = RegistrationAlgorithms.icpRefinement(
         alignedSource,
         alignedTarget,
         pcaTransform,
-        200,
-        1e-7
+        500, // Increased max iterations for translation-only refinement
+        1e-9, // Tighter tolerance for better convergence
+        false // No RANSAC
       );
       console.log('✅ ICP succeeded!');
       console.log(`Iterations: ${result.iterations}`);
       console.log(`Error: ${result.error.toFixed(6)}`);
     } catch (icpError) {
       console.log('❌ ICP failed:',icpError instanceof Error ? icpError.message : String(icpError));
+      if (icpError instanceof Error && icpError.stack) {
+        // Only show first few lines of stack
+        const stackLines = icpError.stack.split('\n').slice(0, 5);
+        console.log('Stack:', stackLines.join('\n'));
+      }
+    }
+
+    // Try ICP with RANSAC
+    console.log('\n🔄 Attempting ICP refinement (with RANSAC)...');
+    try {
+      const result = RegistrationAlgorithms.icpRefinement(
+        alignedSource,
+        alignedTarget,
+        pcaTransform,
+        500, // Increased max iterations for translation-only refinement
+        1e-9, // Tighter tolerance for better convergence
+        true, // Enable RANSAC
+        {
+          maxIterations: 200,
+          inlierThreshold: 0.01,
+          sampleSize: Math.min(100, Math.max(20, Math.floor(alignedSource.count * 0.002)))
+        }
+      );
+      console.log('✅ ICP with RANSAC succeeded!');
+      console.log(`Iterations: ${result.iterations}`);
+      console.log(`Error: ${result.error.toFixed(6)}`);
+    } catch (icpError) {
+      console.log('❌ ICP with RANSAC failed:',icpError instanceof Error ? icpError.message : String(icpError));
       if (icpError instanceof Error && icpError.stack) {
         // Only show first few lines of stack
         const stackLines = icpError.stack.split('\n').slice(0, 5);

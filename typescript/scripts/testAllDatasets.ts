@@ -85,8 +85,8 @@ const DATASETS: TestDataset[] = [
   },
   {
     name: 'PinFails2',
-    source: '../../test_data/external/PinFails2/file1.ply',
-    target: '../../test_data/external/PinFails2/file2.ply',
+    source: '../../test_data/external/PinFails2/file2.ply', // Swapped: use smaller cloud as source
+    target: '../../test_data/external/PinFails2/file1.ply', // Swapped: use larger cloud as target
     category: 'challenging'
   }
 ];
@@ -141,14 +141,26 @@ async function testDataset(dataset: TestDataset): Promise<TestResult> {
     const [alignedSource, alignedTarget] = PointCloudReader.alignCloudSizes(source, target);
 
     // Run registration
-    console.log(`   🔄 Running registration...`);
+    // Enable RANSAC for challenging datasets (partial overlap, poor initial alignment)
+    const useRANSAC = dataset.category === 'challenging';
+    if (useRANSAC) {
+      console.log(`   🔄 Running registration with RANSAC...`);
+    } else {
+      console.log(`   🔄 Running registration...`);
+    }
     const startTime = performance.now();
 
     const result = RegistrationAlgorithms.register(
       alignedSource,
       alignedTarget,
       200, // maxIterations
-      1e-7 // tolerance
+      1e-7, // tolerance
+      useRANSAC, // Enable RANSAC for challenging datasets
+      useRANSAC ? {
+        maxIterations: 200, // More RANSAC iterations for challenging cases
+        inlierThreshold: 0.01, // 1cm threshold
+        sampleSize: Math.min(100, Math.max(20, Math.floor(alignedSource.count * 0.002))) // 0.2% sample
+      } : undefined
     );
 
     const duration = performance.now() - startTime;
