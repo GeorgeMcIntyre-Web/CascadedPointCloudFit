@@ -159,8 +159,10 @@ CascadedPointCloudFit/
 ├── scripts/                   # Utility scripts
 │   └── generate_test_data.py  # Generate augmented test data
 ├── docs/                      # Documentation
-│   └── planning/              # Planning documents
-├── legacy/                    # Legacy code (reference only)
+│   ├── HANDOFF_OPTIMIZATION.md  # Optimization handoff guide
+│   ├── OPTIMIZATION_QUICK_REFERENCE.md  # Quick reference
+│   └── archive/              # Historical documentation
+│       └── planning/          # Planning documents
 ├── setup.py                   # Package setup
 ├── pyproject.toml             # Project configuration
 └── requirements*.txt          # Dependencies
@@ -321,9 +323,27 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for development guidelines.
 
 ## 📖 Documentation
 
-- **[REFACTORING_COMPLETE.md](REFACTORING_COMPLETE.md)** - Phase 2 refactoring summary
-- **[docs/planning/](docs/planning/)** - Planning documents and roadmaps
-- **[test_data/README.md](test_data/README.md)** - Test data documentation
+### Core Documentation
+- **[README.md](README.md)** - Main project documentation (this file)
+- **[CONTRIBUTING.md](CONTRIBUTING.md)** - Contribution guidelines and development setup
+
+### Python Implementation
+- **[Package Structure](cascaded_fit/)** - Production Python package with 88% test coverage
+- **[Test Suite](tests/)** - 116 passing tests with comprehensive validation
+- **[Test Data README](test_data/README.md)** - Test data documentation and datasets
+
+### TypeScript Implementation ⭐
+- **[TypeScript README](typescript/README.md)** - TypeScript library documentation
+- **[API Reference](typescript/docs/API_REFERENCE.md)** - Complete API documentation with examples
+- **[Architecture Guide](typescript/docs/ARCHITECTURE.md)** - System design and algorithm flow
+- **[Optimization Summary](typescript/docs/OPTIMIZATION_SUMMARY.md)** - Performance analysis (19% faster)
+- **[Test Documentation](typescript/tests/README.md)** - 82 passing tests with E2E and performance suites
+
+### Historical Documentation
+- **[Archive](docs/archive/)** - Planning documents, refactoring summaries, and historical records
+  - Planning roadmaps and conversion strategies
+  - Refactoring completion summaries
+  - Technical debt reviews
 
 ## 📜 License
 
@@ -360,9 +380,9 @@ For issues, questions, or contributions:
 ## 🔜 Roadmap
 
 - [x] Increase test coverage to 80%+ ✅ (88% achieved)
+- [x] Implement TypeScript version ✅ (82 tests, 19% faster with optimization)
+- [x] Add performance benchmarks ✅ (Comprehensive test suite with E2E and performance tests)
 - [ ] Add Docker deployment
-- [ ] Implement TypeScript version
-- [ ] Add performance benchmarks
 - [ ] Create web UI
 - [ ] Support additional file formats (XYZ, PCD)
 - [ ] Multi-cloud batch processing
