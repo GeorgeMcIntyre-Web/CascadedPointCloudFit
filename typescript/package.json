@@ -1,0 +1,99 @@
+{
+  "name": "cascaded-point-cloud-fit-ts",
+  "version": "0.1.0",
+  "description": "TypeScript implementation of cascaded point cloud registration using PCA and ICP for automatic kinematic generation from CAD designs",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "module": "dist/index.js",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE",
+    "docs"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx watch src/index.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "lint": "eslint src --ext .ts",
+    "format": "prettier --write \"src/**/*.ts\"",
+    "cli": "tsx src/cli/index.ts",
+    "start": "node dist/api/server.js",
+    "prepublishOnly": "npm run build && npm test",
+    "validate:external": "tsx scripts/validateExternalData.ts",
+    "clean": "rimraf dist",
+    "rebuild": "npm run clean && npm run build"
+  },
+  "bin": {
+    "cascaded-pointcloud-fit": "./dist/bin/cli.js"
+  },
+  "keywords": [
+    "point-cloud",
+    "registration",
+    "icp",
+    "pca",
+    "3d",
+    "typescript",
+    "kinematics",
+    "cad",
+    "computer-vision",
+    "robotics",
+    "iterative-closest-point",
+    "principal-component-analysis",
+    "transformation",
+    "alignment"
+  ],
+  "author": "",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/cascaded-point-cloud-fit.git"
+  },
+  "bugs": {
+    "url": "https://github.com/yourusername/cascaded-point-cloud-fit/issues"
+  },
+  "homepage": "https://github.com/yourusername/cascaded-point-cloud-fit#readme",
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "dependencies": {
+    "commander": "^11.1.0",
+    "express": "^4.18.2",
+    "js-yaml": "^4.1.1",
+    "kd-tree-javascript": "^1.0.3",
+    "ml-matrix": "^6.10.4",
+    "papaparse": "^5.4.1"
+  },
+  "devDependencies": {
+    "@types/commander": "^2.12.2",
+    "@types/express": "^4.17.21",
+    "@types/js-yaml": "^4.0.9",
+    "@types/node": "^20.10.0",
+    "@types/papaparse": "^5.3.14",
+    "@typescript-eslint/eslint-plugin": "^6.15.0",
+    "@typescript-eslint/parser": "^6.15.0",
+    "@vitest/coverage-v8": "^1.1.0",
+    "eslint": "^8.55.0",
+    "husky": "^8.0.3",
+    "lint-staged": "^15.2.0",
+    "prettier": "^3.1.1",
+    "rimraf": "^5.0.5",
+    "tsx": "^4.7.0",
+    "typescript": "^5.3.3",
+    "vitest": "^1.1.0"
+  },
+  "lint-staged": {
+    "*.ts": [
+      "eslint --fix",
+      "prettier --write"
+    ]
+  }
+}
